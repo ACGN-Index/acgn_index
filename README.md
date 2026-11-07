@@ -1,6 +1,6 @@
 # ACGN Index
 
-[![CI](https://github.com/ACGN-Index/ACGN-Index/actions/workflows/ci.yml/badge.svg)](https://github.com/ACGN-Index/ACGN-Index/actions/workflows/ci.yml)
+[![CI](https://github.com/ACGN-Index/acgn_index/actions/workflows/ci.yml/badge.svg)](https://github.com/ACGN-Index/acgn_index/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.47.2-02569B.svg)](https://flutter.dev)
 
