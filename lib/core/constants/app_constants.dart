@@ -18,6 +18,9 @@ abstract final class AppConstants {
   /// JS 表达式默认执行上限，超时视为规则错误而不是拖垮 UI。
   static const Duration scriptTimeout = Duration(seconds: 3);
 
+  /// 宽度达到该值（Material 3 expanded 断点）时，主导航由底部栏切换为侧边栏。
+  static const double wideLayoutBreakpoint = 840;
+
   static const String defaultUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';

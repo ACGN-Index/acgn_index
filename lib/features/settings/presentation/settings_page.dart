@@ -2,7 +2,7 @@ import 'package:acgn_index/core/constants/app_constants.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-/// 设置：外观、关于与许可证。主题持久化在 M2 提供。
+/// 我的：外观、关于与许可证。主题持久化在 M2 提供。
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
