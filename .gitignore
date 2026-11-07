@@ -46,3 +46,17 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Generated code: run `dart run tool/bootstrap.dart` after cloning or
+# whenever a @DriftDatabase / l10n source changes.
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+/lib/l10n/generated/
+
+# Signing material and local secrets - never commit these
+*.jks
+*.keystore
+key.properties
+.env
+.env.*

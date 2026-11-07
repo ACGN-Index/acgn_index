@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "id": "demo.mock",
+    "name": "示例规则（本地 Mock）",
+    "baseUrl": "https://example.invalid",
+    "version": "0.1.0",
+    "author": "acgn_index",
+    "lang": "zh",
+    "description": "仅用于本地开发与测试，不指向任何真实站点。",
+    "types": ["comic", "novel"]
+  },
+  "request": {
+    "headers": {
+      "User-Agent": "ACGNIndex/0.1"
+    },
+    "timeoutMs": 15000,
+    "encoding": "utf-8"
+  },
+  "capabilities": {
+    "search": {
+      "url": "/search?q={{key}}&page={{page}}",
+      "method": "GET",
+      "list": {
+        "selector": ".result .item"
+      },
+      "fields": {
+        "id": {
+          "selector": "a",
+          "attr": "href",
+          "regex": "/(\\d+)$",
+          "group": 1
+        },
+        "title": {
+          "selector": ".title"
+        },
+        "cover": {
+          "selector": "img",
+          "attr": "src",
+          "absolute": true
+        }
+      }
+    },
+    "detail": {
+      "url": "/work/{{id}}",
+      "fields": {
+        "title": {
+          "selector": "h1"
+        },
+        "cover": {
+          "selector": ".cover img",
+          "attr": "src",
+          "absolute": true
+        },
+        "intro": {
+          "selector": ".intro",
+          "html": true
+        }
+      }
+    },
+    "toc": {
+      "url": "/work/{{id}}/chapters",
+      "list": {
+        "selector": ".chapters li"
+      },
+      "fields": {
+        "title": {
+          "selector": "a"
+        },
+        "url": {
+          "selector": "a",
+          "attr": "href",
+          "absolute": true
+        }
+      }
+    },
+    "content": {
+      "url": "{{chapterUrl}}",
+      "fields": {
+        "images": {
+          "js": "ctx.images"
+        }
+      }
+    }
+  }
+}

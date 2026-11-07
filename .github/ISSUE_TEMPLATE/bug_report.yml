@@ -1,0 +1,58 @@
+name: Bug 报告
+description: 报告可复现的缺陷
+title: '[bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先搜索已有 Issue。日志与规则片段请先脱敏（去掉 cookie、token、作者私有地址）。
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台
+      options:
+        - Android
+        - Windows
+        - Linux
+        - iOS（未验证）
+        - macOS（未验证）
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本
+      description: 设置页可见，或 pubspec.yaml 的 version
+      placeholder: '0.1.0'
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开「规则」页
+        2. 导入规则包 ...
+        3. 在「发现」中搜索 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 有报错请贴日志（脱敏后）
+    validations:
+      required: true
+  - type: textarea
+    id: rule
+    attributes:
+      label: 相关规则片段（可选）
+      render: json

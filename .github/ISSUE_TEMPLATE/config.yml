@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 规则包规范
+    url: https://github.com/ACGN-Index/ACGN-Index/blob/main/docs/rule-spec.md
+    about: 编写或调试规则前请先阅读规范
+  - name: 贡献指南
+    url: https://github.com/ACGN-Index/ACGN-Index/blob/main/CONTRIBUTING.md
+    about: 环境搭建、提交规范与 PR 检查清单

@@ -1,0 +1,24 @@
+{
+  "dart.lineLength": 100,
+  "editor.formatOnSave": true,
+  "editor.rulers": [100],
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "[dart]": {
+    "editor.defaultFormatter": "Dart-Code.dart-code",
+    "editor.formatOnType": true
+  },
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "search.exclude": {
+    "**/*.g.dart": true,
+    "**/*.freezed.dart": true,
+    "lib/l10n/generated/**": true,
+    "build/**": true
+  },
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.dart_tool/**": true
+  }
+}

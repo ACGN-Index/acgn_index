@@ -1,0 +1,41 @@
+{
+  "@@locale": "zh",
+  "appTitle": "ACGN Index",
+  "navLibrary": "书架",
+  "navDiscover": "发现",
+  "navSources": "规则",
+  "navSettings": "设置",
+  "libraryEmptyTitle": "书架还是空的",
+  "libraryEmptyBody": "去「发现」搜索作品，或先到「规则」安装一个采集规则。",
+  "discoverSearchHint": "搜索作品",
+  "discoverEmptyTitle": "发现",
+  "discoverEmptyBody": "搜索、榜单与分类将在规则引擎接入后开放。",
+  "sourcesEmptyTitle": "尚未安装规则",
+  "sourcesEmptyBody": "规则包以 JSON 描述站点结构，可从本地导入 .acgn.json 文件。",
+  "sourcesLoadFailed": "读取规则源失败，请检查数据库是否可写。",
+  "sourcesInstalledCount": "已安装 {count} 个规则源",
+  "@sourcesInstalledCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAppearance": "外观",
+  "settingsThemeMode": "主题",
+  "settingsThemeSystem": "跟随系统",
+  "settingsThemeLight": "浅色",
+  "settingsThemeDark": "深色",
+  "settingsAbout": "关于",
+  "settingsVersion": "版本 {version}",
+  "@settingsVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLicense": "开源许可证",
+  "settingsLicenseValue": "GPL-3.0",
+  "settingsDisclaimer": "本应用仅提供规则解析与阅读功能，不托管、不分发任何内容。"
+}
