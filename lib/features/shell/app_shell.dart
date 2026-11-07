@@ -1,5 +1,5 @@
 import 'package:acgn_index/core/constants/app_constants.dart';
-import 'package:acgn_index/features/shell/presentation/shell_destination.dart';
+import 'package:acgn_index/features/shell/shell_destination.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

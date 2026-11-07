@@ -1,8 +1,8 @@
-import 'package:acgn_index/features/discover/presentation/discover_page.dart';
-import 'package:acgn_index/features/library/presentation/library_page.dart';
-import 'package:acgn_index/features/settings/presentation/settings_page.dart';
-import 'package:acgn_index/features/shell/presentation/shell_destination.dart';
-import 'package:acgn_index/features/sources/presentation/sources_page.dart';
+import 'package:acgn_index/features/discover/discover_page.dart';
+import 'package:acgn_index/features/library/library_page.dart';
+import 'package:acgn_index/features/settings/settings_page.dart';
+import 'package:acgn_index/features/shell/shell_destination.dart';
+import 'package:acgn_index/features/sources/sources_page.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +12,11 @@ abstract final class AppRoutes {
   static const String discover = '/discover';
   static const String sources = '/sources';
   static const String settings = '/settings';
+
+  /// 查看器是全屏页，挂在根路由上而不是主导航分支里。
+  static const String videoViewer = '/viewer/video';
+  static const String comicViewer = '/viewer/comic';
+  static const String novelViewer = '/viewer/novel';
 }
 
 /// 一个主导航项：同时描述该 tab 的路由/页面与导航栏的图标、文案。

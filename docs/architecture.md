@@ -45,7 +45,8 @@
 | `lib/rule_engine/models` | 规则包 schema 建模 + 序列化 |
 | `lib/rule_engine/pipeline` | 校验、后续的求值/抓取流水线 |
 | `lib/rule_engine/sandbox` | JS 运行时抽象与安全边界 |
-| `lib/features/*/presentation` | 页面与页面级 provider |
+| `lib/features/<feature>` | 页面与页面级 provider（feature 目录下直接放页面） |
+| `lib/features/viewer` | 视频 / 漫画 / 小说查看器：播放后端抽象、弹幕引擎、阅读设置 |
 | `lib/l10n` | ARB 源文件（生成物在 `lib/l10n/generated`，不入库） |
 
 ## 数据流
@@ -68,7 +69,7 @@ RulePack.capabilities[search] → 求值器（M1）→ HTML/JSON → 作品列�
 ## 状态管理
 
 - 使用 Riverpod 3，**不启用** `riverpod_generator`：手写 provider 让依赖关系显式可见，也避免与 Drift 的 codegen 叠加。
-- Provider 组织：`lib/data/providers.dart` 暴露基础设施（数据库、仓储）；页面级 provider 放在对应 `presentation` 目录。
+- Provider 组织：`lib/data/providers.dart` 暴露基础设施（数据库、仓储）；页面级 provider 放在对应 feature 目录。
 - `Provider` 默认不自动销毁；只有确实跟页面生命周期绑定的数据才加 `isAutoDispose: true`。
 - 需要跨页共享可写状态时用 `Notifier`，不要用 `StateProvider`。
 
@@ -76,7 +77,21 @@ RulePack.capabilities[search] → 求值器（M1）→ HTML/JSON → 作品列�
 
 `go_router` + `StatefulShellRoute.indexedStack`：四个主 tab 各自保留导航栈。路由实例由 `appRouterProvider` 创建，测试用新的 `ProviderScope` 即可拿到干净的路由状态。
 
-新增页面：在 `lib/features/<feature>/presentation` 下建页面，路径常量加到 `AppRoutes`，再挂到对应分支（需要脱离底部导航的全屏页时，挂到根 `routes` 而不是 branch）。
+新增页面：在 `lib/features/<feature>` 下建页面，路径常量加到 `AppRoutes`，再挂到对应分支（需要脱离底部导航的全屏页时，挂到根 `routes` 而不是 branch）。
+
+## 查看器
+
+三种内容各有一个全屏路由，挂在根 `routes` 上（不经过底部导航）；内容通过 `GoRouterState.extra` 传入 `domain/entities` 下的实体，类型不符时页面展示「缺少内容参数」。
+
+| 路由 | 页面 | 入参 |
+| --- | --- | --- |
+| `/viewer/video` | `VideoViewerPage` | `VideoViewerContent`：分集播放源 + 弹幕 |
+| `/viewer/comic` | `ComicViewerPage` | `ComicViewerContent`：章节 + 图片列表 |
+| `/viewer/novel` | `NovelViewerPage` | `NovelViewerContent`：章节 + 段落 |
+
+- 视频播放依赖 `VideoPlaybackController` 接口，默认实现是 media_kit（libmpv）；页面只读接口状态，测试用 `videoPlaybackControllerFactoryProvider` 覆盖为假实现。
+- 弹幕拆成两层：`DanmakuEngine` 负责时间轴与轨道分配（纯逻辑、可单测），`DanmakuOverlay` 用 Ticker + CustomPaint 渲染，并与播放器位置周期性校正。
+- 小说阅读设置（字号 / 行距 / 背景）与章节阅读进度持久化在 SharedPreferences；漫画用 `photo_view` 负责缩放与翻页。
 
 ## 错误处理
 
@@ -103,3 +118,5 @@ RulePack.capabilities[search] → 求值器（M1）→ HTML/JSON → 作品列�
 | Drift 而非 NoSQL | 规则、进度、下载需要关系查询与迁移 | 需要 `build_runner` codegen |
 | 生成物不入库 | 避免合并冲突和评审噪音 | 新环境必须先跑 `dart run tool/bootstrap.dart`，CI 也会跑 |
 | `MediaType` 放在 `core/models` | 被 `rule_engine`、`domain`、`features` 共同使用，放在任一侧都会造成反向依赖 | 与直觉的"实体放 domain"略有偏差 |
+| 播放器用 `media_kit` 而非官方 `video_player` | 官方插件不覆盖 Windows/Linux，而本项目需要全平台 | 需随包分发 libmpv，安装包变大 |
+| 弹幕自研而非引入第三方包 | 需要与播放器时钟严格同步的轨道排版，且第三方包维护状态不一 | 需要自己维护排版与回收逻辑 |

@@ -37,5 +37,50 @@
   },
   "settingsLicense": "开源许可证",
   "settingsLicenseValue": "GPL-3.0",
-  "settingsDisclaimer": "本应用仅提供规则解析与阅读功能，不托管、不分发任何内容。"
+  "settingsDisclaimer": "本应用仅提供规则解析与阅读功能，不托管、不分发任何内容。",
+  "viewerContentMissingTitle": "无法打开查看器",
+  "viewerContentMissingBody": "缺少内容参数，请从详情页重新进入。",
+  "viewerBack": "返回",
+  "viewerFullscreen": "全屏",
+  "viewerExitFullscreen": "退出全屏",
+  "viewerPlay": "播放",
+  "viewerPause": "暂停",
+  "viewerDanmaku": "弹幕",
+  "viewerDanmakuSettings": "弹幕设置",
+  "viewerDanmakuOpacity": "不透明度",
+  "viewerDanmakuFontScale": "弹幕字号",
+  "viewerDanmakuArea": "显示区域",
+  "viewerDanmakuScroll": "滚动弹幕",
+  "viewerDanmakuTop": "顶部弹幕",
+  "viewerDanmakuBottom": "底部弹幕",
+  "viewerDanmakuInputHint": "发个弹幕吧",
+  "viewerDanmakuSend": "发送",
+  "viewerEpisodes": "选集",
+  "viewerCatalog": "目录",
+  "viewerPreviousChapter": "上一章",
+  "viewerNextChapter": "下一章",
+  "viewerPageOf": "{current} / {total}",
+  "@viewerPageOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerComicEmpty": "本章暂无图片",
+  "viewerNovelEmpty": "本章暂无内容",
+  "viewerImageLoadFailed": "图片加载失败",
+  "viewerPlaybackError": "视频加载失败，请检查网络或链接。",
+  "viewerRetry": "重试",
+  "viewerDone": "完成",
+  "novelReaderSettings": "阅读设置",
+  "novelReaderFontSize": "字号",
+  "novelReaderLineHeight": "行距",
+  "novelReaderBackground": "背景",
+  "novelReaderThemePaper": "纸白",
+  "novelReaderThemeSepia": "暖黄",
+  "novelReaderThemeNight": "夜间"
 }

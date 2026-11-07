@@ -14,9 +14,12 @@
 - 工程规范：`docs/architecture.md`、`docs/conventions.md`、`docs/rule-spec.md`。
 - GitHub Actions CI（format / analyze / test）、Issue 与 PR 模板。
 - `tool/bootstrap.dart` 一键生成 l10n 与 Drift 代码。
+- 查看器基建：视频（media_kit + 弹幕）、漫画（缩放翻页）、小说（排版 / 阅读进度 / 阅读设置）三个全屏页面，挂在 `/viewer/*` 根路由。
+- 新增依赖：`media_kit` / `media_kit_video` / `media_kit_libs_video`（全平台播放）、`photo_view`（漫画缩放）。
 
 ### Changed
 
 - Android `applicationId` 与 `namespace` 改为 `io.github.acgnindex.acgn_index`。
+- 目录结构去掉 `features/*/presentation` 层级，页面与页面级 provider 直接放在 feature 目录下。
 
-[Unreleased]: https://github.com/ACGN-Index/ACGN-Index/commits/main
+[Unreleased]: https://github.com/ACGN-Index/acgn_index/commits/main

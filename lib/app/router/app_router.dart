@@ -1,5 +1,11 @@
 import 'package:acgn_index/app/router/app_destinations.dart';
-import 'package:acgn_index/features/shell/presentation/app_shell.dart';
+import 'package:acgn_index/domain/entities/comic_content.dart';
+import 'package:acgn_index/domain/entities/novel_content.dart';
+import 'package:acgn_index/domain/entities/video_content.dart';
+import 'package:acgn_index/features/shell/app_shell.dart';
+import 'package:acgn_index/features/viewer/comic_viewer_page.dart';
+import 'package:acgn_index/features/viewer/novel_viewer_page.dart';
+import 'package:acgn_index/features/viewer/video_viewer_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -32,5 +38,24 @@ GoRouter createAppRouter() => GoRouter(
           ),
       ],
     ),
+    // 查看器为全屏页：不带底部导航，内容通过 `extra` 传入。
+    GoRoute(
+      path: AppRoutes.videoViewer,
+      builder: (context, state) => VideoViewerPage(content: _extraAs<VideoViewerContent>(state)),
+    ),
+    GoRoute(
+      path: AppRoutes.comicViewer,
+      builder: (context, state) => ComicViewerPage(content: _extraAs<ComicViewerContent>(state)),
+    ),
+    GoRoute(
+      path: AppRoutes.novelViewer,
+      builder: (context, state) => NovelViewerPage(content: _extraAs<NovelViewerContent>(state)),
+    ),
   ],
 );
+
+/// 类型不符或未传 `extra` 时返回 null，由页面展示「缺少内容参数」提示。
+T? _extraAs<T extends Object>(GoRouterState state) {
+  final extra = state.extra;
+  return extra is T ? extra : null;
+}

@@ -36,7 +36,7 @@
 
 见 [architecture.md](architecture.md)。新增文件前先确认它属于哪一层：
 
-- 页面与页面状态 → `features/<feature>/presentation`
+- 页面与页面状态 → `features/<feature>`
 - 可复用的业务规则 → `domain`
 - 外部 IO（网络、数据库、文件） → `data`
 - 规则解析/求值 → `rule_engine`
