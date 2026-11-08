@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "id": "builtin.kazumi.tvtfun",
+    "type": "anime",
+    "name": "TvTFun（资料 + 目录）",
+    "baseUrl": "https://www.tvtfun.net",
+    "version": "1.0.0",
+    "author": "acgn_index（改写自 KazumiRules）",
+    "lang": "zh",
+    "description": "改写自 Kazumi 开源规则：公开 JSON 接口搜索 / 详情，播放页剧集表取目录；播放地址由站点脚本二次加载，暂不提供。",
+    "notice": "规则改写自 Predidit/KazumiRules（MIT）。仅解析公开接口与剧集表，不含播放地址；内容版权归原权利人，默认关闭。"
+  },
+  "request": {
+    "headers": {
+      "Referer": "https://www.tvtfun.net/",
+      "Accept": "application/json, text/html;q=0.9, */*;q=0.8"
+    },
+    "timeoutMs": 20000,
+    "encoding": "utf-8",
+    "retry": 1
+  },
+  "capabilities": {
+    "search": {
+      "mode": "query",
+      "url": "https://www.tvtfun.net/api/client/anime?keyword={{key}}&page={{page}}&pageSize={{pageSize}}",
+      "pageSize": 20,
+      "list": {
+        "jsonPath": "$.data.items[*]"
+      },
+      "fields": {
+        "id": {
+          "jsonPath": "$.slug"
+        },
+        "title": {
+          "jsonPath": "$.name"
+        },
+        "cover": {
+          "jsonPath": "$.coverUrl"
+        },
+        "subtitle": {
+          "jsonPath": "$.totalEpisodes",
+          "template": "共 {{value}} 集"
+        },
+        "url": {
+          "jsonPath": "$.slug",
+          "template": "https://www.tvtfun.net/watch/{{value}}/1"
+        }
+      },
+      "pagination": {
+        "pageSize": 20,
+        "totalItems": {
+          "jsonPath": "$.data.total"
+        }
+      }
+    },
+    "detail": {
+      "url": "https://www.tvtfun.net/api/client/anime/{{id}}",
+      "fields": {
+        "title": {
+          "jsonPath": "$.data.name"
+        },
+        "cover": {
+          "jsonPath": "$.data.coverUrl"
+        },
+        "intro": {
+          "jsonPath": "$.data.summary"
+        },
+        "year": {
+          "jsonPath": "$.data.airDate",
+          "regex": "^(\\d{4})",
+          "group": 1
+        },
+        "episodeCount": {
+          "jsonPath": "$.data.totalEpisodes"
+        },
+        "rating": {
+          "jsonPath": "$.data.bangumiScore"
+        }
+      }
+    },
+    "toc": {
+      "url": "{{url}}",
+      "list": {
+        "selector": "ol.tvt-watch-episodes li"
+      },
+      "fields": {
+        "title": {
+          "selector": "a",
+          "attr": "title",
+          "fallback": {
+            "selector": "a"
+          }
+        },
+        "url": {
+          "selector": "a",
+          "attr": "href",
+          "absolute": true
+        }
+      }
+    }
+  }
+}

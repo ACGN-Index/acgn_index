@@ -18,7 +18,7 @@ void main() {
     final manifest = readJson('$assetDir/index.json');
     final packs = (manifest['packs'] as List<Object?>).cast<Map<String, Object?>>();
 
-    expect(packs, hasLength(4));
+    expect(packs, hasLength(7));
 
     for (final entry in packs) {
       final id = entry['id']! as String;
@@ -66,6 +66,42 @@ void main() {
       expect(search.mode, SearchMode.localIndex, reason: file);
       expect(search.index, isNotNull, reason: file);
       expect(search.filter?.script, isNotNull, reason: file);
+    }
+  });
+
+  test('Kazumi 改写规则默认关闭且全为动漫源', () {
+    final manifest = readJson('$assetDir/index.json');
+    final kazumiPacks = (manifest['packs'] as List<Object?>)
+        .cast<Map<String, Object?>>()
+        .where((entry) => (entry['id']! as String).startsWith('builtin.kazumi.'))
+        .toList();
+
+    expect(kazumiPacks, hasLength(3));
+    for (final entry in kazumiPacks) {
+      expect(entry['enabledByDefault'], isFalse, reason: '${entry['id']}');
+      final pack = RulePack.fromJson(readJson('$assetDir/${entry['file']}'));
+      expect(pack.meta.type.wireName, 'anime', reason: pack.id);
+      expect(pack.meta.notice, contains('KazumiRules'), reason: pack.id);
+    }
+  });
+
+  test('视频规则能从目录直链播放，其余规则至少提供目录', () {
+    for (final file in <String>['girigirilove.anime.acgn.json', 'mxdm.anime.acgn.json']) {
+      final pack = RulePack.fromJson(readJson('$assetDir/$file'));
+      final content = pack.capabilities[RuleCapability.content]! as ContentCapabilityRule;
+      expect(content.mode, ContentMode.video, reason: file);
+      expect(pack.capabilities[RuleCapability.toc], isNotNull, reason: file);
+    }
+
+    final girigiri = RulePack.fromJson(readJson('$assetDir/girigirilove.anime.acgn.json'));
+    final content = girigiri.capabilities[RuleCapability.content]! as ContentCapabilityRule;
+    expect(content.url.trim(), isEmpty, reason: '播放地址由目录条目提供');
+    expect(content.fields['url']?.constant, contains('chapter.url'));
+
+    for (final file in <String>['tvtfun.anime.acgn.json']) {
+      final pack = RulePack.fromJson(readJson('$assetDir/$file'));
+      expect(pack.capabilities[RuleCapability.content], isNull, reason: file);
+      expect(pack.capabilities[RuleCapability.toc], isNotNull, reason: file);
     }
   });
 }

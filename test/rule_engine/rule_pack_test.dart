@@ -66,14 +66,28 @@ void main() {
       expect(() => RulePack.fromJson(json), throwsA(isA<RuleFormatException>()));
     });
 
-    test('字段规则声明多种取值来源时抛出 RuleFormatException', () {
+    test('字段规则声明多种主取值来源时抛出 RuleFormatException', () {
       final json = cloneDemoPack();
       final search = json['capabilities'] as Map<String, Object?>;
       final searchRule = search['search'] as Map<String, Object?>;
       final fields = searchRule['fields'] as Map<String, Object?>;
-      fields['title'] = <String, Object?>{'selector': '.title', 'js': 'value'};
+      fields['title'] = <String, Object?>{'selector': '.title', 'xpath': '//title'};
 
       expect(() => RulePack.fromJson(json), throwsA(isA<RuleFormatException>()));
+    });
+
+    test('主取值来源可以与 js 后处理组合', () {
+      final json = cloneDemoPack();
+      final search = json['capabilities'] as Map<String, Object?>;
+      final searchRule = search['search'] as Map<String, Object?>;
+      final fields = searchRule['fields'] as Map<String, Object?>;
+      fields['title'] = <String, Object?>{'selector': '.title', 'js': 'value => value.trim()'};
+
+      final pack = RulePack.fromJson(json);
+      final searchCapability = pack.capabilities[RuleCapability.search]! as SearchCapabilityRule;
+
+      expect(searchCapability.fields['title']?.primarySource, FieldSource.css);
+      expect(searchCapability.fields['title']?.script, isNotNull);
     });
 
     test('未知内容类型时抛出 RuleFormatException', () {

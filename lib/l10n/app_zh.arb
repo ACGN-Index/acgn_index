@@ -8,8 +8,37 @@
   "libraryEmptyTitle": "收藏还是空的",
   "libraryEmptyBody": "去「发现」搜索作品，或先到「规则」安装一个采集规则。",
   "discoverSearchHint": "搜索作品",
-  "discoverEmptyTitle": "发现",
-  "discoverEmptyBody": "搜索、榜单与分类将在规则引擎接入后开放。",
+  "discoverFilterTitle": "筛选",
+  "discoverFilterType": "类型",
+  "discoverFilterCategory": "分类",
+  "discoverFilterAll": "全部",
+  "discoverFilterBuiltin": "内置",
+  "discoverFilterImported": "已导入",
+  "discoverFilterReset": "重置",
+  "discoverFilterApply": "应用",
+  "discoverAdultBadge": "成人",
+  "discoverEmptyTitle": "还没有启用的规则源",
+  "discoverEmptyBody": "到「规则」页启用内置规则，或导入带搜索能力的规则包。",
+  "discoverGoToSources": "前往规则",
+  "discoverNoSearchableTitle": "没有可发现的内容",
+  "discoverNoSearchableBody": "已启用的规则都没有搜索能力，请启用其他规则或导入新的规则包。",
+  "discoverNoItemsTitle": "暂时没有内容",
+  "discoverNoItemsBody": "规则没有返回作品，可以稍后刷新重试。",
+  "discoverNoMatchTitle": "当前筛选下没有内容",
+  "discoverNoMatchBody": "换个类型或分类试试。",
+  "discoverResetFilter": "重置筛选",
+  "discoverErrorTitle": "内容加载失败",
+  "discoverLoadFailed": "内容加载失败，请稍后重试。",
+  "discoverRetry": "重试",
+  "discoverRefresh": "刷新",
+  "discoverPartialFailure": "{count} 个规则加载失败",
+  "@discoverPartialFailure": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sourcesEmptyTitle": "尚未安装规则",
   "sourcesEmptyBody": "规则包以 JSON 描述站点结构，可从本地导入 .acgn.json 文件。",
   "sourcesLoadFailed": "读取规则源失败，请检查数据库是否可写。",
@@ -216,6 +245,29 @@
     "placeholders": {
       "count": {
         "type": "int"
+      }
+    }
+  },
+  "detailTitle": "作品详情",
+  "detailMissingItem": "缺少作品参数，请从发现页重新进入。",
+  "detailLoadFailed": "作品加载失败，请稍后重试。",
+  "detailIntro": "简介",
+  "detailTags": "标签",
+  "detailAuthor": "作者",
+  "detailStatus": "状态",
+  "detailYear": "年份",
+  "detailRating": "评分",
+  "detailEpisodeCount": "集数",
+  "detailChapters": "目录",
+  "detailNoToc": "该规则没有提供目录。",
+  "detailNoContent": "该源仅提供资料，没有正文。",
+  "detailChapterLoadFailed": "章节加载失败，请稍后重试。",
+  "detailFileCopied": "文件地址已复制。",
+  "detailFileOnly": "该章节是 {format} 文件，已复制下载地址。",
+  "@detailFileOnly": {
+    "placeholders": {
+      "format": {
+        "type": "String"
       }
     }
   },

@@ -57,18 +57,18 @@ class FieldRule {
     final script = json.stringOrNull('js');
     final constant = json.stringOrNull('const');
     final itemsJson = json.mapOrNull('items');
-    final sources = <String?>[selector, xpath, jsonPath, script, constant].nonNulls;
-    if (sources.length > 1) {
+    final primarySources = <String?>[selector, xpath, jsonPath, constant].nonNulls;
+    if (primarySources.length > 1) {
       throw const RuleFormatException(
-        '字段规则只能声明 selector / xpath / jsonPath / js / const 之一',
+        '字段规则只能声明 selector / xpath / jsonPath / const 中的一种；js 可作为后处理附加',
       );
     }
-    if (sources.isEmpty && itemsJson == null) {
+    if (primarySources.isEmpty && script == null && itemsJson == null) {
       throw const RuleFormatException(
         '字段规则必须声明 selector / xpath / jsonPath / js / const 之一，或声明 items',
       );
     }
-    if (sources.isNotEmpty && itemsJson != null) {
+    if ((primarySources.isNotEmpty || script != null) && itemsJson != null) {
       throw const RuleFormatException('items 不能与 selector / xpath / jsonPath / js / const 同时声明');
     }
 
@@ -150,17 +150,20 @@ class FieldRule {
   /// 是否为对象数组字段（`items` + `fields`）。
   bool get isObjectList => items != null;
 
-  /// 声明的取值来源数量；对象数组字段为 0。
-  int get sourceCount => <String?>[selector, xpath, jsonPath, script, constant].nonNulls.length;
+  /// 主取值来源数量；`js` 可与之组合，不计入此数。
+  int get sourceCount => <String?>[selector, xpath, jsonPath, constant].nonNulls.length;
 
-  FieldSource? get source {
+  /// 主取值来源；纯 `js` 规则返回 null。
+  FieldSource? get primarySource {
     if (selector != null) return FieldSource.css;
     if (xpath != null) return FieldSource.xpath;
     if (jsonPath != null) return FieldSource.jsonPath;
-    if (script != null) return FieldSource.javaScript;
     if (constant != null) return FieldSource.constant;
     return null;
   }
+
+  /// 当前生效的来源；没有主来源时返回 [FieldSource.javaScript]。
+  FieldSource? get source => primarySource ?? (script != null ? FieldSource.javaScript : null);
 
   Map<String, Object?> toJson() => <String, Object?>{
     if (selector != null) 'selector': selector,

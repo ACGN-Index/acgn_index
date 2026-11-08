@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "id": "builtin.kazumi.girigirilove",
+    "type": "anime",
+    "name": "GiriGiriLove（视频）",
+    "baseUrl": "https://ani.girigirilove.com",
+    "version": "1.0.0",
+    "author": "acgn_index（改写自 KazumiRules）",
+    "lang": "zh",
+    "description": "改写自 Kazumi 开源规则：关键词搜索、剧集表与 HLS 直链播放。",
+    "notice": "规则改写自 Predidit/KazumiRules（MIT）。视频由第三方站点提供，本应用不托管、不分发任何内容；仅供个人学习交流，默认关闭。",
+    "allowedHosts": [
+      "https://m3u8.girigirilove.com"
+    ]
+  },
+  "request": {
+    "headers": {
+      "Referer": "https://ani.girigirilove.com/"
+    },
+    "timeoutMs": 20000,
+    "encoding": "utf-8",
+    "retry": 1
+  },
+  "capabilities": {
+    "search": {
+      "mode": "query",
+      "url": "https://m3u8.girigirilove.com/api.php/Vod/get_list?vod_name={{key}}&offset={{offset}}&limit={{pageSize}}",
+      "pageSize": 20,
+      "list": {
+        "jsonPath": "$.info.rows[*]"
+      },
+      "fields": {
+        "id": {
+          "jsonPath": "$.vod_id"
+        },
+        "title": {
+          "jsonPath": "$.vod_name"
+        },
+        "cover": {
+          "jsonPath": "$.vod_pic",
+          "absolute": true
+        },
+        "subtitle": {
+          "jsonPath": "$.vod_remarks"
+        },
+        "url": {
+          "jsonPath": "$.vod_id",
+          "template": "https://ani.girigirilove.com/detail/{{value}}"
+        }
+      },
+      "pagination": {
+        "pageSize": 20,
+        "totalItems": {
+          "jsonPath": "$.info.total"
+        }
+      }
+    },
+    "detail": {
+      "url": "https://m3u8.girigirilove.com/api.php/Vod/get_detail?vod_id={{id}}",
+      "fields": {
+        "title": {
+          "jsonPath": "$.info.vod_name"
+        },
+        "cover": {
+          "jsonPath": "$.info.vod_pic",
+          "js": "value => { var text = String(value || '').trim(); if (!text) { return null; } if (text.indexOf('http') === 0) { return text; } while (text.charAt(0) === '/') { text = text.slice(1); } return 'https://ani.girigirilove.com/' + text; }"
+        },
+        "intro": {
+          "jsonPath": "$.info.vod_content",
+          "htmlToText": true
+        },
+        "year": {
+          "jsonPath": "$.info.vod_year"
+        },
+        "tags": {
+          "jsonPath": "$.info.vod_class",
+          "js": "value => String(value || '').split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)"
+        }
+      }
+    },
+    "toc": {
+      "url": "https://m3u8.girigirilove.com/api.php/Vod/get_detail?vod_id={{id}}",
+      "list": {
+        "js": "function (value, ctx) { var info = (ctx.json && ctx.json.info) || {}; var roads = String(info.vod_play_url || '').split('$$$'); var names = String(info.vod_play_from || '').split('$$$'); var out = []; for (var r = 0; r < roads.length; r++) { var road = String(roads[r] || ''); if (!road) { continue; } var groupTitle = String(names[r] || '').trim() || ('线路 ' + (r + 1)); var episodes = road.split('#'); for (var i = 0; i < episodes.length; i++) { var parts = String(episodes[i] || '').split('$'); var url = parts.length > 1 ? parts[1] : ''; if (!url) { continue; } out.push({ title: (parts[0] || '').trim() || ('第 ' + (i + 1) + ' 集'), url: url, group: groupTitle, groupTitle: groupTitle, order: i + 1 }); } } return out; }"
+      },
+      "fields": {
+        "title": {
+          "jsonPath": "$.title"
+        },
+        "url": {
+          "jsonPath": "$.url"
+        },
+        "order": {
+          "jsonPath": "$.order"
+        },
+        "group": {
+          "jsonPath": "$.group"
+        },
+        "groupTitle": {
+          "jsonPath": "$.groupTitle"
+        }
+      }
+    },
+    "content": {
+      "mode": "video",
+      "fields": {
+        "title": {
+          "const": "{{chapter.title}}"
+        },
+        "url": {
+          "const": "{{chapter.url}}"
+        },
+        "type": {
+          "const": "hls"
+        },
+        "referer": {
+          "const": "https://ani.girigirilove.com/"
+        }
+      }
+    }
+  }
+}

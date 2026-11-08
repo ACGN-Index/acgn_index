@@ -75,6 +75,32 @@ void main() {
       );
     });
 
+    test('主取值来源可以与 js 后处理组合', () {
+      final json = cloneDemoPack();
+      final search =
+          (json['capabilities'] as Map<String, Object?>)['search'] as Map<String, Object?>;
+      final fields = search['fields'] as Map<String, Object?>;
+      fields['title'] = <String, Object?>{'selector': '.title', 'js': 'value => value.trim()'};
+      final result = validator.validate(json);
+
+      expect(result.isValid, isTrue, reason: describe(result));
+    });
+
+    test('声明多个主取值来源报错', () {
+      final json = cloneDemoPack();
+      final search =
+          (json['capabilities'] as Map<String, Object?>)['search'] as Map<String, Object?>;
+      final fields = search['fields'] as Map<String, Object?>;
+      fields['title'] = <String, Object?>{'selector': '.title', 'xpath': '//title'};
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(
+        result.errors.map((issue) => issue.path),
+        contains('capabilities.search.fields.title'),
+      );
+    });
+
     test('非法正则表达式报错', () {
       final json = cloneDemoPack();
       final capabilities = json['capabilities'] as Map<String, Object?>;
@@ -117,6 +143,46 @@ void main() {
 
       expect(result.isValid, isFalse);
       expect(result.errors.map((issue) => issue.path), contains('capabilities.content.mode'));
+    });
+
+    test('video 正文 url 可留空，但必须有内联地址', () {
+      final json = cloneDemoPack();
+      final content =
+          (json['capabilities'] as Map<String, Object?>)['content'] as Map<String, Object?>;
+      content['mode'] = 'video';
+      content.remove('url');
+
+      final missing = validator.validate(json);
+      expect(missing.isValid, isFalse);
+      expect(missing.errors.map((issue) => issue.path), contains('capabilities.content.url'));
+
+      content['fields'] = <String, Object?>{
+        'url': <String, Object?>{'const': '{{chapter.url}}'},
+      };
+      final inline = validator.validate(json);
+      expect(inline.isValid, isTrue, reason: describe(inline));
+
+      content['resolve'] = <String, Object?>{'url': '/resolve/{{chapter.id}}'};
+      final withResolve = validator.validate(json);
+      expect(withResolve.isValid, isFalse);
+      expect(
+        withResolve.errors.map((issue) => issue.path),
+        contains('capabilities.content.resolve'),
+      );
+    });
+
+    test('留空的 url 只对 video 生效', () {
+      final json = cloneDemoPack();
+      final content =
+          (json['capabilities'] as Map<String, Object?>)['content'] as Map<String, Object?>;
+      content.remove('url');
+      content['fields'] = <String, Object?>{
+        'url': <String, Object?>{'const': '{{chapter.url}}'},
+      };
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('capabilities.content.url'));
     });
 
     test('index 搜索缺少 filter 报错', () {

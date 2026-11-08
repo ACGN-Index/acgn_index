@@ -35,18 +35,22 @@
 | `lib/core/errors` | `sealed AppException` 家族，UI 据此分派错误文案 |
 | `lib/core/logging` | 统一日志与敏感值脱敏 |
 | `lib/core/models` | 跨层共享的纯值对象（如 `MediaType`） |
-| `lib/core/utils` | JSON 读取辅助等无状态工具 |
+| `lib/core/utils` | JSON 读取、HTML 文本切段等无状态工具 |
 | `lib/core/widgets` | 无业务语义的通用组件（空状态等） |
 | `lib/data/db` | Drift 表定义、DAO、迁移 |
 | `lib/data/builtin` | 内置规则集的校验与播种（`BuiltinRuleSeeder`） |
-| `lib/data/repositories` | 仓储接口的 Drift/Dio 实现 |
+| `lib/data/network` | 规则 HTTP 客户端（Dio 实现） |
+| `lib/data/sandbox` | `JsRuntime` 的 QuickJS 实现（`flutter_js`） |
+| `lib/data/repositories` | 仓储实现：规则源、发现聚合、详情/章节编排 |
 | `lib/data/providers.dart` | 数据层的 Riverpod 组合根 |
-| `lib/domain/entities` | 领域实体（不可变） |
+| `lib/domain/entities` | 领域实体（不可变），含详情页的 `WorkView` / `ViewerLaunch` |
 | `lib/domain/repositories` | 仓储抽象接口 |
-| `lib/rule_engine/models` | 规则包 schema 建模 + 序列化 |
-| `lib/rule_engine/pipeline` | 校验、后续的求值/抓取流水线 |
+| `lib/rule_engine/models` | 规则包 schema 建模 + 序列化，以及详情 / 目录 / 正文产出模型 |
+| `lib/rule_engine/pipeline` | 规则校验、模板渲染、字段求值、HTTP 抓取与四类能力流水线 |
 | `lib/rule_engine/sandbox` | JS 运行时抽象与安全边界 |
 | `lib/features/<feature>` | 页面与页面级 provider（feature 目录下直接放页面） |
+| `lib/features/discover` | 发现页：聚合启用规则的搜索结果、类型/来源筛选、作品网格 |
+| `lib/features/detail` | 作品详情：详情字段、分组目录、章节按需抓取并打开查看器 |
 | `lib/features/viewer` | 视频 / 漫画 / 小说查看器：播放后端抽象、弹幕引擎、阅读设置 |
 | `lib/features/sources` | 规则源列表与规则编辑器（可视化表单 / JSON 双模式、校验、保存） |
 | `lib/l10n` | ARB 源文件（生成物在 `lib/l10n/generated`，不入库） |
@@ -61,12 +65,56 @@ RulePack.fromJson(rawJson)                   ← 结构解析，非法即抛
    ▼
 RuleSourceRepository.save(RuleSource)        ← 原文 + 冗余列写入 Drift
    ▼
-[features/sources] 列表  →  [features/discover] 选择规则搜索
+[features/sources] 列表  →  [features/discover] 读取所有启用规则
    ▼
-RulePack.capabilities[search] → 求值器（M1）→ HTML/JSON → 作品列表
+RuleSearchPipeline.search(pack, keyword: '') ← 模板 → HTTP → JSON/HTML/XML 解析 → 字段求值
+   ▼
+DiscoverFeed（作品 + 失败规则）→ 作品网格 + 类型/来源筛选
+   ▼
+点击作品 → RuleWorkRepository.loadWork(item)
+   ├─ RuleDetailPipeline.fetch(pack, id, url) → WorkDetail
+   └─ RuleTocPipeline.fetch(pack, detail, searchResult) → TocResult
+   ▼
+点击章节 → RuleContentPipeline.fetch(pack, chapter) → RuleContent
+   ▼
+ViewerLaunch → 漫画 / 小说 / 视频查看器（文件模式复制下载地址）
 ```
 
 规则原文是唯一事实来源；`name`/`baseUrl`/`version` 只是为列表查询冗余的列，写入时必须与 JSON 同步（见 `DriftRuleSourceRepository.save`）。
+
+## 发现页
+
+`features/discover` 通过 `DiscoverFeedRepository` 聚合所有启用规则：
+
+1. 只处理 `pack.supports(RuleCapability.search)` 的规则，按 `priority` + 名称排序；
+2. 每条规则以空关键词请求第一页（`query` 模式请求搜索接口；`index` 模式拉索引，空关键词时跳过 `filter`）；
+3. 单条规则失败只记录 `AppLogger` 并计入 `DiscoverFeed.failures`，不影响其它规则；
+4. 类型 / 来源筛选在已加载结果上本地完成，不重复请求；
+5. 卡片点击进入 `/work` 详情页，搜索结果的全部字段通过 `DiscoverItem.extra` 透传，供 `toc.fanOutFrom: search.volumes` 使用。
+
+规则求值流水线位于 `lib/rule_engine/pipeline`：
+
+| 组件 | 职责 |
+| --- | --- |
+| `FieldEvaluator` | `const` / CSS / XPath / JSONPath / JS 取值与后处理（regex / template / fallback） |
+| `RuleRequestBuilder` | 模板渲染、URL 解析与 host 白名单检查 |
+| `RuleSearchPipeline` | `query` / `index` 两种搜索与分页 |
+| `RuleDetailPipeline` | 单作品详情字段 |
+| `RuleTocPipeline` | 平铺目录，或按 `detail.volumes` / `search.volumes` 逐组扇出 |
+| `RuleContentPipeline` | `resolve` 二段请求 + 图片 / 文本 / 视频 / 文件正文 |
+
+JS 字段由组合根注入 `JsRuntime`：生产实现是 `data/sandbox/flutter_js_runtime.dart`（QuickJS，懒加载），单元测试用假实现。`value` / `ctx` 是唯一注入的绑定；没有配置运行时时遇到 `js` 规则会判规则失败。
+
+## 详情页与章节加载
+
+`features/detail` 通过 `WorkRepository` 加载数据：
+
+1. 按 `DiscoverItem.ruleId` 找到规则源；规则不存在时报 `StorageException`。
+2. 有 `detail` 能力则走 `RuleDetailPipeline`，否则用搜索项字段兜底。
+3. 有 `toc` 能力则走 `RuleTocPipeline`，把 `WorkDetail` 与 `SearchResult`（含 `extra`）传入以支持两种 `fanOutFrom`。
+4. 章节点击时调用 `RuleContentPipeline` 抓取当前章节，再由 `mapRuleContent` 映射为 `ComicViewerLaunch` / `NovelViewerLaunch` / `VideoViewerLaunch` / `FileViewerLaunch`。
+
+漫画与小说一次只加载当前章节，查看器内不预取全书；视频把正文的每条线路映射为一集。EPUB/TXT 等文件模式没有内置阅读器，详情页复制下载地址并提示用户。
 
 ## 内置规则集
 
@@ -78,6 +126,8 @@ RulePack.capabilities[search] → 求值器（M1）→ HTML/JSON → 作品列�
 4. 同 id 但来自用户导入的规则不会被覆盖。
 
 内置包只读，规则页可启用/停用；想改内容时用规则编辑器「另存为新规则」。
+
+其中 `builtin.kazumi.*` 三条改写自 [KazumiRules](https://github.com/Predidit/KazumiRules)（MIT）的在用规则。原规则用 WebView + JS Hook 抓取播放地址，改写时按本站 schema 重写为 JSONPath / CSS 取值：能直接从公开接口或播放页拿到 HLS 直链的写 `content.mode=video`（GiriGiriLove 的地址直接来自目录条目，故 `content.url` 留空），拿不到的只保留 `search` / `detail` / `toc`。三条全部默认关闭。
 
 ## 状态管理
 

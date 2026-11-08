@@ -420,12 +420,31 @@ class RulePackValidator {
     String path,
     List<RuleIssue> issues,
   ) {
-    _requireNonEmptyString(rule, 'url', '$path.url', issues);
+    final mode = ContentMode.tryParse(rule.stringOrNull('mode') ?? '');
+    // 视频源可以只由目录条目提供地址（`{{chapter.url}}`），此时不发请求。
+    final rawFields = rule['fields'];
+    final hasInlineVideoUrl =
+        rawFields is Map<Object?, Object?> &&
+        (rawFields.containsKey('url') || rawFields.containsKey('urls'));
+    final url = rule.stringOrNull('url')?.trim() ?? '';
+    final inlineVideo = mode == ContentMode.video && hasInlineVideoUrl;
+    if (url.isEmpty && inlineVideo) {
+      if (rule.containsKey('resolve')) {
+        issues.add(
+          RuleIssue(
+            path: '$path.resolve',
+            message: 'url 为空时不发请求，resolve 也不再可用',
+          ),
+        );
+      }
+    } else {
+      _requireNonEmptyString(rule, 'url', '$path.url', issues);
+    }
     if (!rule.containsKey('mode')) {
       issues.add(RuleIssue(path: '$path.mode', message: '缺少必填字段 mode'));
     } else {
       final rawMode = rule.stringOrNull('mode');
-      if (rawMode == null || ContentMode.tryParse(rawMode) == null) {
+      if (rawMode == null || mode == null) {
         issues.add(
           RuleIssue(
             path: '$path.mode',
@@ -456,6 +475,7 @@ class RulePackValidator {
     _checkUnknownKeys(field, _fieldKeys, path, issues);
 
     final declaredSources = <String>[];
+    final primarySources = <String>[];
     for (final key in _fieldSourceKeys) {
       final value = field[key];
       if (value == null) {
@@ -466,6 +486,9 @@ class RulePackValidator {
         continue;
       }
       declaredSources.add(key);
+      if (key != 'js') {
+        primarySources.add(key);
+      }
     }
 
     if (field.containsKey('items')) {
@@ -502,11 +525,11 @@ class RulePackValidator {
             message: '必须声明 selector / xpath / jsonPath / js / const 之一，或声明 items',
           ),
         );
-      } else if (declaredSources.length > 1) {
+      } else if (primarySources.length > 1) {
         issues.add(
           RuleIssue(
             path: path,
-            message: '只能声明一种取值来源，当前声明了 ${declaredSources.join(', ')}',
+            message: '只能声明一种主取值来源（js 可作为后处理附加），当前声明了 ${declaredSources.join(', ')}',
           ),
         );
       }

@@ -1,8 +1,10 @@
 import 'package:acgn_index/app/router/app_destinations.dart';
 import 'package:acgn_index/domain/entities/comic_content.dart';
+import 'package:acgn_index/domain/entities/discover_feed.dart';
 import 'package:acgn_index/domain/entities/novel_content.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/entities/video_content.dart';
+import 'package:acgn_index/features/detail/work_detail_page.dart';
 import 'package:acgn_index/features/shell/app_shell.dart';
 import 'package:acgn_index/features/sources/rule_editor_page.dart';
 import 'package:acgn_index/features/viewer/comic_viewer_page.dart';
@@ -44,6 +46,10 @@ GoRouter createAppRouter() => GoRouter(
     GoRoute(
       path: AppRoutes.ruleEditor,
       builder: (context, state) => RuleEditorPage(source: _extraAs<RuleSource>(state)),
+    ),
+    GoRoute(
+      path: AppRoutes.workDetail,
+      builder: (context, state) => WorkDetailPage(item: _extraAs<DiscoverItem>(state)),
     ),
     GoRoute(
       path: AppRoutes.videoViewer,

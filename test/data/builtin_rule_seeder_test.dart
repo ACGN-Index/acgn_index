@@ -23,9 +23,9 @@ void main() {
   test('首次启动写入内置规则集', () async {
     final result = await seeder.seed();
 
-    expect(result.installed, hasLength(4));
+    expect(result.installed, hasLength(7));
     final sources = await repository.getAll();
-    expect(sources, hasLength(4));
+    expect(sources, hasLength(7));
     expect(sources.every((source) => source.isBuiltin), isTrue);
     expect(sources.every((source) => source.readOnly), isTrue);
 
@@ -35,6 +35,15 @@ void main() {
     expect(byId['builtin.lnovel.novel']?.enabled, isFalse);
     expect(byId['builtin.wenku8.novel']?.enabled, isFalse);
     expect(byId['builtin.wenku8.novel']?.priority, 3);
+    for (final id in <String>[
+      'builtin.kazumi.girigirilove',
+      'builtin.kazumi.mxdm',
+      'builtin.kazumi.tvtfun',
+    ]) {
+      expect(byId[id]?.enabled, isFalse, reason: id);
+      expect(byId[id]?.type.wireName, 'anime', reason: id);
+    }
+    expect(byId['builtin.kazumi.tvtfun']?.priority, 6);
   });
 
   test('重复启动不会重复写入', () async {
@@ -42,7 +51,7 @@ void main() {
     final result = await seeder.seed();
 
     expect(result.isEmpty, isTrue);
-    expect(await repository.getAll(), hasLength(4));
+    expect(await repository.getAll(), hasLength(7));
   });
 
   test('更新内置规则时保留用户的启用状态', () async {

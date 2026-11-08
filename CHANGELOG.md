@@ -22,12 +22,22 @@
 - 规则页改版：内置 / 已导入分区、类型徽标、来源说明与启用开关。
 - 规则编辑器：右下角悬浮按钮进入，支持 JSON 语法高亮输入、格式化、校验（逐条列出路径）、保存；内置规则只读并可另存副本。
 - 规则编辑器可视化模式：按基础信息 / 请求 / 搜索 / 详情 / 目录 / 正文分区编辑，字段规则支持 CSS / XPath / JSONPath / JS / 常量 / 对象数组与后处理选项，能力的启停、索引、分页、分卷与二段请求均可表单配置，并与 JSON 模式实时双向同步。
+- 规则 `search` 求值流水线：模板渲染、JSONPath 子集、CSS / XPath / JSONPath 字段求值、Dio HTTP 客户端、host 白名单与 `query` / `index` 分页。
+- M1 抓取流水线补齐：`RuleDetailPipeline`、`RuleTocPipeline`（平铺目录 / `fanOutFrom` 分卷扇出 / 分组）、`RuleContentPipeline`（`resolve` 二段请求与 video / images / text / file 四种正文）。
+- JS 字段求值：`flutter_js`（QuickJS）运行时注入 `value` / `ctx`，支持表达式与函数形式；`FieldRule` 允许一个主来源附加 `js` 后处理。
+- 作品详情页：发现页卡片进入 `/work`，展示详情与分组目录，章节按需抓取并打开漫画 / 小说 / 视频查看器；EPUB/TXT 文件模式复制下载地址。
+- `WorkRepository` 编排详情 / 目录 / 正文，`mapRuleContent` 把引擎结果映射为现有查看器实体。
+- 发现页：聚合所有启用规则的搜索结果，展示作品封面网格、类型 / 成人徽标，支持类型 / 来源筛选、下拉刷新与部分规则失败提示。
+- 内置规则集新增 3 条改写自 [KazumiRules](https://github.com/Predidit/KazumiRules)（MIT）的视频规则：GiriGiriLove、MX动漫（可从公开接口 / 播放页取到 HLS 直链并播放），TvTFun（仅资料与剧集表）；全部默认关闭，`index.json` 清单版本升到 `1.1.0`。
+- `content` 视频能力支持省略请求地址：`fields.url` / `fields.urls` 已声明时直接用 `{{chapter.url}}` 等目录字段构造播放源，不再发起额外请求。
 
 ### Changed
 
 - Android `applicationId` 与 `namespace` 改为 `io.github.acgnindex.acgn_index`。
 - 目录结构去掉 `features/*/presentation` 层级，页面与页面级 provider 直接放在 feature 目录下。
 - 默认启动页改为「发现」。
+- 发现页由占位页改为作品网格，首屏按空关键词聚合启用规则的搜索结果。
+- `DiscoverItem` 增加 `extra`，保留搜索结果字段供目录 `fanOutFrom` 使用。
 - Drift `SourceRecords` 增加 `type` / `origin` / `readOnly` / `notice` / `priority`，数据库 schema 升到 2 并带迁移。
 
 [Unreleased]: https://github.com/ACGN-Index/acgn_index/commits/main

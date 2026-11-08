@@ -69,7 +69,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `url` | string | ✅ | 请求地址模板（`search` 的 `index` 模式与 `toc` 的分卷扇出可省略） |
+| `url` | string | ✅ | 请求地址模板（`search` 的 `index` 模式、`toc` 的分卷扇出、`video` 正文可省略） |
 | `method` | `"GET"` \| `"POST"` | ❌ | 默认 `GET` |
 | `body` | string | ❌ | POST 请求体模板 |
 | `headers` | object<string,string> | ❌ | 该能力附带的请求头，与规则包级请求头合并 |
@@ -127,10 +127,12 @@
 
 | `mode` | 必填字段 | 可选字段 |
 | --- | --- | --- |
-| `video` | `url` 或 `urls` | `type`（`hls`/`mp4`）、`headers`、`referer`、`quality`、`danmakuUrl` |
+| `video` | `url` 或 `urls`（请求地址 `url` 可留空） | `type`（`hls`/`mp4`）、`headers`、`referer`、`quality`、`danmakuUrl` |
 | `images` | `images`（数组） | `headers`、`referer` |
 | `text` | `body`（HTML/文本）或 `paragraphs` | `images`、`title` |
 | `file` | `url`、`format`（`epub`/`txt`） | `size`、`checksum` |
+
+`video` 的 `url`（请求地址）可以留空：此时不发请求，`fields` 必须声明 `url` 或 `urls`，通常用 `{{chapter.url}}` 取目录条目自带的直链。留空时 `resolve` 不可用。
 
 可选 `resolve` 二段请求：`{"url": "...", "method": "GET", "fields": { ... }}`，其字段以 `{{resolve.*}}` 注入 `content.fields` 与资产地址模板。
 
@@ -165,16 +167,18 @@
 
 ## 6. FieldRule（字段规则）
 
-### 6.1 取值来源（必须且只能声明一个，或用 `items` 声明对象数组）
+### 6.1 取值来源（一个主来源，可附加 `js`；或用 `items` 声明对象数组）
 
 | 键 | 说明 |
 | --- | --- |
 | `selector` | CSS 选择器（默认在列表条目上下文中查询） |
 | `xpath` | XPath 表达式（用于 XML/XHTML） |
 | `jsonPath` | JSONPath 表达式（用于 JSON 接口） |
-| `js` | JS 表达式，在沙箱内执行 |
+| `js` | JS 表达式，在沙箱内执行；可单独作为来源，也可附加在一个主来源之后 |
 | `const` | 常量字符串 |
-| `items` | 对象数组的条目选择规则；与上面五个键互斥 |
+| `items` | 对象数组的条目选择规则；与所有取值来源互斥（包括 `js`） |
+
+主来源最多声明一个：`selector` / `xpath` / `jsonPath` / `const`。`js` 不占主来源名额：单独声明时是来源，与主来源同时声明时是后处理步骤。
 
 ### 6.2 后处理选项
 
@@ -197,17 +201,17 @@
 ### 6.3 求值顺序
 
 ```
-选择器/JS/常量
+主来源（selector / xpath / jsonPath / const）或纯 JS
   → attr 或 html 或 text 或 htmlToText
   → regex(group)
-  → js 表达式（value 变量为当前结果）
+  → js 后处理（value 为当前结果；纯 JS 时 value 为当前条目/页面）
   → template（{{value}} / {{ctx.xxx}}）
   → prefix + 结果 + suffix
   → absolute 解析
   → fallback → default
 ```
 
-`multiple: true` 时对每个匹配项执行上述链，产出数组。
+`multiple: true` 时对每个匹配项执行上述链，产出数组；纯 JS 返回数组时逐项产出。
 
 ### 6.4 对象数组
 
@@ -225,10 +229,10 @@
 
 ### 6.5 JS 表达式约定
 
-- 沙箱内**只能**访问：`value`（前一步结果）、`ctx`（当前条目/页面的只读上下文）、`http`（受限 GET）。
-- 索引搜索的 `filter` 额外提供 `ctx.keyword` 与 `ctx.keywordNormalized`（归一化关键词）。
-- 不提供 `dart:io`、`dart:ffi`、文件系统、任意网络；`http` 仅允许访问规则声明的 host。
-- 表达式建议是纯函数形式：`"value => value.trim()"`，也可写语句块（M1 实现时确定）。
+- M1 沙箱注入：`value`（前一步结果 / 当前条目）与 `ctx`（当前条目、页面与模板变量的只读副本）。
+- `ctx` 同时提供模板变量、`ctx.baseUrl`、`ctx.pageUri` 与 `ctx.json`；索引搜索额外提供 `ctx.keyword` 与 `ctx.keywordNormalized`（归一化关键词）。
+- 不提供 `dart:io`、`dart:ffi`、文件系统或宿主对象。`http` 绑定预留给后续版本，当前引用会判规则错误。
+- M1 支持表达式与函数形式：`"value => value.trim()"`、`"function (value, ctx) { return value.trim(); }"`；不支持裸语句块。
 - 单次执行上限 3 秒（`AppConstants.scriptTimeout`），超时即判规则失败。
 
 ## 7. 校验规则
@@ -243,11 +247,11 @@
 - 缺少 `capabilities` 或为空
 - `search`：`mode` 非法；`query` 缺 `url`；`index` 缺 `index.url` / `index.list` / `filter`；`pageSize` 非正整数
 - `toc`：无 `fanOutFrom` 时缺 `url`；声明 `group` 但缺 `fanOutFrom`；声明 `list` 但没有 `url`
-- `content`：缺 `mode` 或 `mode` 非法；缺 `url`
-- `detail` / `content` / `search`（query）缺 `url`
+- `content`：缺 `mode` 或 `mode` 非法；缺 `url`（`video` 且 `fields` 声明了 `url` / `urls` 时可留空）；`url` 留空却声明 `resolve`
+- `detail` / `search`（query）缺 `url`
 - `resolve` 缺 `url`
 - 能力 `method` 不是 GET/POST；`headers` 值不是字符串
-- 字段规则没有取值来源且没有 `items`，或声明了多个来源，或 `items` 与来源同时声明
+- 字段规则没有取值来源且没有 `items`，或声明了多个主来源，或 `items` 与来源同时声明（`js` 可与一个主来源组合）
 - `regex` 无法编译；`group` 非非负整数；`multiple` / `html` / `absolute` / `htmlToText` 非布尔
 - `fallback` / `items` 不是对象；`fields` 与取值来源同时出现
 

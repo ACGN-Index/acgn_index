@@ -2,6 +2,7 @@ import 'package:acgn_index/app/router/app_destinations.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/core/widgets/empty_state_view.dart';
+import 'package:acgn_index/core/widgets/media_type_visuals.dart';
 import 'package:acgn_index/data/providers.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/features/sources/delete_rule_dialog.dart';
@@ -114,7 +115,7 @@ class _SourceTile extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     return ListTile(
-      leading: Icon(_iconFor(source.type)),
+      leading: Icon(mediaTypeIcon(source.type)),
       title: Row(
         children: <Widget>[
           Flexible(child: Text(source.name, overflow: TextOverflow.ellipsis)),
@@ -201,12 +202,6 @@ class _SourceTile extends ConsumerWidget {
         ..showSnackBar(SnackBar(content: Text(l10n.sourcesDeleteFailed)));
     }
   }
-
-  IconData _iconFor(MediaType type) => switch (type) {
-    MediaType.anime => Icons.live_tv_outlined,
-    MediaType.comic => Icons.auto_stories_outlined,
-    MediaType.novel => Icons.menu_book_outlined,
-  };
 
   String _labelFor(AppLocalizations l10n, MediaType type) => switch (type) {
     MediaType.anime => l10n.sourcesTypeAnime,
