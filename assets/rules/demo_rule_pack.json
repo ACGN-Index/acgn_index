@@ -2,25 +2,29 @@
   "schemaVersion": 1,
   "meta": {
     "id": "demo.mock",
+    "type": "comic",
     "name": "示例规则（本地 Mock）",
     "baseUrl": "https://example.invalid",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "acgn_index",
     "lang": "zh",
     "description": "仅用于本地开发与测试，不指向任何真实站点。",
-    "types": ["comic", "novel"]
+    "notice": "示例规则，不含任何真实站点地址。"
   },
   "request": {
     "headers": {
-      "User-Agent": "ACGNIndex/0.1"
+      "User-Agent": "ACGNIndex/0.2"
     },
     "timeoutMs": 15000,
-    "encoding": "utf-8"
+    "encoding": "utf-8",
+    "retry": 0
   },
   "capabilities": {
     "search": {
+      "mode": "query",
       "url": "/search?q={{key}}&page={{page}}",
       "method": "GET",
+      "pageSize": 20,
       "list": {
         "selector": ".result .item"
       },
@@ -39,6 +43,9 @@
           "attr": "src",
           "absolute": true
         }
+      },
+      "pagination": {
+        "pageSize": 20
       }
     },
     "detail": {
@@ -55,6 +62,20 @@
         "intro": {
           "selector": ".intro",
           "html": true
+        },
+        "volumes": {
+          "items": {
+            "selector": ".volumes li"
+          },
+          "fields": {
+            "id": {
+              "selector": "a",
+              "attr": "data-id"
+            },
+            "title": {
+              "selector": "a"
+            }
+          }
         }
       }
     },
@@ -64,6 +85,10 @@
         "selector": ".chapters li"
       },
       "fields": {
+        "id": {
+          "selector": "a",
+          "attr": "data-chapter-id"
+        },
         "title": {
           "selector": "a"
         },
@@ -75,10 +100,17 @@
       }
     },
     "content": {
-      "url": "{{chapterUrl}}",
+      "mode": "images",
+      "url": "{{chapter.url}}",
       "fields": {
         "images": {
-          "js": "ctx.images"
+          "selector": ".reader img",
+          "attr": "src",
+          "multiple": true,
+          "absolute": true
+        },
+        "referer": {
+          "const": "{{baseUrl}}"
         }
       }
     }

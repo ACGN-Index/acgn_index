@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "id": "builtin.lnovel.novel",
+    "type": "novel",
+    "name": "LNovel（日轻中文文本）",
+    "baseUrl": "https://lnovel.animes.garden",
+    "version": "1.0.0",
+    "author": "acgn_index",
+    "lang": "zh",
+    "description": "LNovel 公开 API，按卷获取日轻中文目录与正文。",
+    "notice": "第三方公开接口，内容版权归原作者与译者；仅供个人学习交流，默认关闭。"
+  },
+  "request": {
+    "headers": {
+      "User-Agent": "ACGNIndex/0.1 (https://github.com/ACGN-Index/ACGN-Index)",
+      "Accept": "application/json"
+    },
+    "timeoutMs": 20000,
+    "encoding": "utf-8",
+    "retry": 1
+  },
+  "capabilities": {
+    "search": {
+      "mode": "index",
+      "index": {
+        "url": "/api/bili/novels",
+        "method": "GET",
+        "list": {
+          "jsonPath": "$.data[*]"
+        },
+        "ttlSeconds": 3600
+      },
+      "filter": {
+        "js": "ctx.keywordNormalized.length === 0 ? true : ((value.name || '').toLowerCase().includes(ctx.keywordNormalized) || (value.authors || []).some(a => (a.name || '').toLowerCase().includes(ctx.keywordNormalized)))"
+      },
+      "pageSize": 20,
+      "fields": {
+        "id": {
+          "jsonPath": "$.nid"
+        },
+        "title": {
+          "jsonPath": "$.name"
+        },
+        "cover": {
+          "jsonPath": "$.cover"
+        },
+        "author": {
+          "jsonPath": "$.authors[0].name"
+        }
+      }
+    },
+    "detail": {
+      "url": "/api/bili/novel/{{id}}",
+      "fields": {
+        "title": {
+          "jsonPath": "$.data.name"
+        },
+        "cover": {
+          "jsonPath": "$.data.cover"
+        },
+        "intro": {
+          "jsonPath": "$.data.description"
+        },
+        "author": {
+          "jsonPath": "$.data.authors[0].name"
+        },
+        "tags": {
+          "jsonPath": "$.data.labels[*]",
+          "multiple": true
+        },
+        "volumes": {
+          "items": {
+            "jsonPath": "$.data.volumes[*]"
+          },
+          "fields": {
+            "id": {
+              "jsonPath": "$.vid"
+            },
+            "title": {
+              "jsonPath": "$.title"
+            }
+          }
+        }
+      }
+    },
+    "toc": {
+      "fanOutFrom": "detail.volumes",
+      "group": {
+        "id": "id",
+        "title": "title"
+      },
+      "url": "/api/bili/novel/{{id}}/vol/{{group.id}}",
+      "list": {
+        "jsonPath": "$.data.chapters[*]"
+      },
+      "fields": {
+        "id": {
+          "jsonPath": "$.cid"
+        },
+        "title": {
+          "jsonPath": "$.title"
+        }
+      }
+    },
+    "content": {
+      "mode": "text",
+      "url": "/api/bili/novel/{{id}}/chapter/{{chapter.id}}",
+      "fields": {
+        "title": {
+          "jsonPath": "$.data.title"
+        },
+        "body": {
+          "jsonPath": "$.data.content"
+        },
+        "images": {
+          "jsonPath": "$.data.images[*].src",
+          "multiple": true
+        }
+      }
+    }
+  }
+}

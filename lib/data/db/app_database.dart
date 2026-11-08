@@ -15,6 +15,20 @@ class SourceRecords extends Table {
   TextColumn get baseUrl => text()();
   TextColumn get version => text().withDefault(const Constant('0.0.0'))();
   IntColumn get schemaVersion => integer().withDefault(const Constant(1))();
+
+  /// 冗余的内容类型，避免列表查询解析规则 JSON。
+  TextColumn get type => text().withDefault(const Constant('comic'))();
+
+  /// `builtin` / `imported`，内置规则随应用更新。
+  TextColumn get origin => text().withDefault(const Constant('imported'))();
+  BoolColumn get readOnly => boolean().withDefault(const Constant(false))();
+
+  /// 来源与合规说明，展示在规则列表。
+  TextColumn get notice => text().withDefault(const Constant(''))();
+
+  /// 聚合搜索时的排序权重，数值越小越靠前。
+  IntColumn get priority => integer().withDefault(const Constant(0))();
+
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
   TextColumn get rulePackJson => text()();
   DateTimeColumn get installedAt => dateTime().withDefault(currentDateAndTime)();
@@ -31,11 +45,20 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: AppConstants.databaseName));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.addColumn(sourceRecords, sourceRecords.type);
+        await migrator.addColumn(sourceRecords, sourceRecords.origin);
+        await migrator.addColumn(sourceRecords, sourceRecords.readOnly);
+        await migrator.addColumn(sourceRecords, sourceRecords.notice);
+        await migrator.addColumn(sourceRecords, sourceRecords.priority);
+      }
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "id": "builtin.bangumi.anime",
+    "type": "anime",
+    "name": "Bangumi 番组计划（资料）",
+    "baseUrl": "https://api.bgm.tv",
+    "version": "1.0.0",
+    "author": "acgn_index",
+    "lang": "zh",
+    "description": "Bangumi 公开 API，提供番剧资料、评分与剧集表。",
+    "notice": "仅提供公开资料与剧集表，不含播放地址；播放源需自行导入规则。"
+  },
+  "request": {
+    "headers": {
+      "User-Agent": "ACGNIndex/0.1 (https://github.com/ACGN-Index/ACGN-Index)",
+      "Accept": "application/json"
+    },
+    "timeoutMs": 15000,
+    "encoding": "utf-8",
+    "retry": 1
+  },
+  "capabilities": {
+    "search": {
+      "mode": "query",
+      "url": "/v0/search/subjects?limit={{pageSize}}&offset={{offset}}",
+      "method": "POST",
+      "body": "{\"keyword\":\"{{key}}\",\"filter\":{\"type\":[2]}}",
+      "pageSize": 20,
+      "list": {
+        "jsonPath": "$.data[*]"
+      },
+      "fields": {
+        "id": {
+          "jsonPath": "$.id"
+        },
+        "title": {
+          "jsonPath": "$.name_cn",
+          "fallback": {
+            "jsonPath": "$.name"
+          }
+        },
+        "cover": {
+          "jsonPath": "$.images.common"
+        },
+        "subtitle": {
+          "jsonPath": "$.date"
+        }
+      },
+      "pagination": {
+        "pageSize": 20,
+        "totalItems": {
+          "jsonPath": "$.total"
+        }
+      }
+    },
+    "detail": {
+      "url": "/v0/subjects/{{id}}",
+      "fields": {
+        "title": {
+          "jsonPath": "$.name_cn",
+          "fallback": {
+            "jsonPath": "$.name"
+          }
+        },
+        "cover": {
+          "jsonPath": "$.images.large"
+        },
+        "intro": {
+          "jsonPath": "$.summary"
+        },
+        "rating": {
+          "jsonPath": "$.rating.score"
+        },
+        "year": {
+          "jsonPath": "$.date"
+        },
+        "episodeCount": {
+          "jsonPath": "$.total_episodes"
+        },
+        "tags": {
+          "jsonPath": "$.tags[*].name",
+          "multiple": true
+        }
+      }
+    },
+    "toc": {
+      "url": "/v0/episodes?subject_id={{id}}&type=0&limit=100&offset=0",
+      "list": {
+        "jsonPath": "$.data[*]"
+      },
+      "fields": {
+        "id": {
+          "jsonPath": "$.id"
+        },
+        "title": {
+          "jsonPath": "$.name_cn",
+          "fallback": {
+            "jsonPath": "$.name"
+          }
+        },
+        "order": {
+          "jsonPath": "$.sort"
+        },
+        "airdate": {
+          "jsonPath": "$.airdate"
+        },
+        "duration": {
+          "jsonPath": "$.duration"
+        }
+      }
+    }
+  }
+}

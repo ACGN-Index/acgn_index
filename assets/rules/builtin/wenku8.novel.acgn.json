@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "id": "builtin.wenku8.novel",
+    "type": "novel",
+    "name": "轻小说文库（社区 EPUB 分卷）",
+    "baseUrl": "https://raw.githubusercontent.com",
+    "allowedHosts": ["github.com", "objects.githubusercontent.com"],
+    "version": "1.0.0",
+    "author": "acgn_index",
+    "lang": "zh",
+    "description": "读取社区维护的公开 EPUB 索引，按卷下载已生成的分卷电子书。",
+    "notice": "索引与附件由第三方社区维护，可能随时变更或下架；版权归原作者所有，默认关闭。"
+  },
+  "request": {
+    "headers": {
+      "User-Agent": "ACGNIndex/0.1 (https://github.com/ACGN-Index/ACGN-Index)",
+      "Accept": "application/json"
+    },
+    "timeoutMs": 30000,
+    "encoding": "utf-8",
+    "retry": 1
+  },
+  "capabilities": {
+    "search": {
+      "mode": "index",
+      "index": {
+        "url": "/mojimoon/wenku8/main/out/epub_index.json",
+        "method": "GET",
+        "list": {
+          "jsonPath": "$.*"
+        },
+        "ttlSeconds": 21600
+      },
+      "filter": {
+        "js": "ctx.keywordNormalized.length === 0 ? false : (value.title || '').toLowerCase().includes(ctx.keywordNormalized) || (value.author || '').toLowerCase().includes(ctx.keywordNormalized)"
+      },
+      "pageSize": 20,
+      "fields": {
+        "id": {
+          "jsonPath": "$.tag",
+          "regex": "book-(\\d+)",
+          "group": 1
+        },
+        "title": {
+          "jsonPath": "$.title"
+        },
+        "author": {
+          "jsonPath": "$.author",
+          "default": ""
+        },
+        "subtitle": {
+          "jsonPath": "$.blocked",
+          "default": ""
+        },
+        "volumes": {
+          "items": {
+            "jsonPath": "$.volumes[*]"
+          },
+          "fields": {
+            "file": {
+              "jsonPath": "$.file"
+            },
+            "title": {
+              "jsonPath": "$.title"
+            },
+            "order": {
+              "jsonPath": "$.index"
+            },
+            "size": {
+              "jsonPath": "$.size"
+            }
+          }
+        }
+      }
+    },
+    "toc": {
+      "fanOutFrom": "search.volumes",
+      "group": {
+        "id": "file",
+        "title": "title"
+      },
+      "fields": {
+        "id": {
+          "const": "epub"
+        },
+        "title": {
+          "const": "{{group.title}}"
+        },
+        "file": {
+          "const": "{{group.id}}"
+        }
+      }
+    },
+    "content": {
+      "mode": "file",
+      "url": "https://github.com/mojimoon/wenku8-epub/releases/download/book-{{id}}/{{id}}-{{chapter.file}}",
+      "fields": {
+        "format": {
+          "const": "epub"
+        }
+      }
+    }
+  }
+}

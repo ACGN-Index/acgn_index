@@ -38,6 +38,7 @@
 | `lib/core/utils` | JSON 读取辅助等无状态工具 |
 | `lib/core/widgets` | 无业务语义的通用组件（空状态等） |
 | `lib/data/db` | Drift 表定义、DAO、迁移 |
+| `lib/data/builtin` | 内置规则集的校验与播种（`BuiltinRuleSeeder`） |
 | `lib/data/repositories` | 仓储接口的 Drift/Dio 实现 |
 | `lib/data/providers.dart` | 数据层的 Riverpod 组合根 |
 | `lib/domain/entities` | 领域实体（不可变） |
@@ -47,6 +48,7 @@
 | `lib/rule_engine/sandbox` | JS 运行时抽象与安全边界 |
 | `lib/features/<feature>` | 页面与页面级 provider（feature 目录下直接放页面） |
 | `lib/features/viewer` | 视频 / 漫画 / 小说查看器：播放后端抽象、弹幕引擎、阅读设置 |
+| `lib/features/sources` | 规则源列表与规则编辑器（可视化表单 / JSON 双模式、校验、保存） |
 | `lib/l10n` | ARB 源文件（生成物在 `lib/l10n/generated`，不入库） |
 
 ## 数据流
@@ -65,6 +67,17 @@ RulePack.capabilities[search] → 求值器（M1）→ HTML/JSON → 作品列�
 ```
 
 规则原文是唯一事实来源；`name`/`baseUrl`/`version` 只是为列表查询冗余的列，写入时必须与 JSON 同步（见 `DriftRuleSourceRepository.save`）。
+
+## 内置规则集
+
+`assets/rules/builtin/` 存放内置规则包，`index.json` 是清单（`id` / `file` / `enabledByDefault`）。`BuiltinRuleSeeder` 在启动时：
+
+1. 读取清单，逐个包先用 `RulePackValidator` 校验，不通过只记日志并跳过；
+2. 库里没有则写入（`origin=builtin`、`readOnly=true`、`priority` 取清单顺序）；
+3. 已存在且是内置包时，仅当清单版本更高才覆盖，并保留用户的启用状态；
+4. 同 id 但来自用户导入的规则不会被覆盖。
+
+内置包只读，规则页可启用/停用；想改内容时用规则编辑器「另存为新规则」。
 
 ## 状态管理
 

@@ -9,5 +9,8 @@ abstract interface class RuleSourceRepository {
   /// 以 `pack.meta.id` 为键新增或覆盖。
   Future<void> save(RuleSource source);
 
+  /// 只切换启用状态，不改动规则内容。
+  Future<void> setEnabled(String id, bool enabled);
+
   Future<void> delete(String id);
 }

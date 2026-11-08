@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "packs": [
+    {
+      "id": "builtin.bangumi.anime",
+      "file": "bangumi.anime.acgn.json",
+      "enabledByDefault": true
+    },
+    {
+      "id": "builtin.bangumi.comic",
+      "file": "bangumi.comic.acgn.json",
+      "enabledByDefault": true
+    },
+    {
+      "id": "builtin.lnovel.novel",
+      "file": "lnovel.novel.acgn.json",
+      "enabledByDefault": false
+    },
+    {
+      "id": "builtin.wenku8.novel",
+      "file": "wenku8.novel.acgn.json",
+      "enabledByDefault": false
+    }
+  ]
+}

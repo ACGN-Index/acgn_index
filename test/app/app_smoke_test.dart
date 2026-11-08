@@ -4,11 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('启动后进入收藏页并展示空状态', (tester) async {
+  testWidgets('启动后进入发现页', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: AcgnIndexApp()));
     await tester.pumpAndSettle();
 
     expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('搜索、榜单与分类将在规则引擎接入后开放。'), findsOneWidget);
+  });
+
+  testWidgets('可以切换到收藏页并展示空状态', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: AcgnIndexApp()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+
     expect(find.text('收藏还是空的'), findsOneWidget);
   });
 

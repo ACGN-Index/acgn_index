@@ -1,6 +1,9 @@
 # 规则包规范 v1
 
 > 本文件是规则 schema 的**唯一权威**。修改规则格式必须同步更新本文件、`RulePackValidator`、`assets/rules/demo_rule_pack.json` 与 `kSupportedSchemaVersion`。
+>
+> 当前仍是预发布阶段，字段可在不升版本号的前提下调整；正式发布后再按第 9 节执行版本演进。
+> 一个规则包只服务一类内容，`meta.type` 必填；`content` 必须声明 `mode`。
 
 规则包是一个 JSON 对象，扩展名约定为 `.acgn.json`，用于描述"如何从某个站点取到作品、目录与正文"。
 
@@ -30,12 +33,15 @@
 | --- | --- | --- | --- |
 | `id` | string | ✅ | 全局唯一标识，建议 `owner.site` 形式，**发布后不可修改** |
 | `name` | string | ✅ | 展示名 |
+| `type` | string | ✅ | 内容类型：`anime` / `comic` / `novel`，一个包只服务一类 |
 | `baseUrl` | string | ✅ | 绝对 `http(s)` 地址，相对链接据此解析 |
 | `version` | string | ✅ | 规则自身版本，遵循 semver |
 | `author` | string | ❌ | 作者 |
 | `lang` | string | ❌ | 内容语言，默认 `zh` |
 | `description` | string | ❌ | 备注 |
-| `types` | string[] | ⚠️ | 支持的内容类型：`anime` / `comic` / `novel`；缺省时规则不出现在任何分类 |
+| `adult` | bool | ❌ | 是否成人内容，默认 `false`；发现页据此过滤 |
+| `notice` | string | ❌ | 来源与合规说明，内置规则集使用 |
+| `allowedHosts` | string[] | ❌ | 除 `baseUrl` 之外还允许请求的主机（索引、下载跨域时使用） |
 
 ## 3. `request`
 
@@ -44,46 +50,122 @@
 | `headers` | object<string,string> | `{}` | 附加请求头，会与内置默认（含 User-Agent）合并 |
 | `timeoutMs` | int | `15000` | 单请求超时 |
 | `encoding` | string | `utf-8` | 响应解码字符集 |
+| `retry` | int | `0` | 网络失败重试次数，0–2 |
 
 ## 4. `capabilities`
 
 键只能是 `search` / `detail` / `toc` / `content`，未知键产生 warning。
 
-| 能力 | 语义 | 输入变量 | 期望产出 |
-| --- | --- | --- | --- |
-| `search` | 关键词搜索 | `key`、`page` | 作品列表（`id`、`title`、`cover`、`author`…） |
-| `detail` | 作品详情 | `id`、`url` | 单作品字段（简介、状态、标签…） |
-| `toc` | 目录/章节列表 | `id`、`url` | 章节列表（`title`、`url`） |
-| `content` | 章节正文 | `chapterUrl` | 小说文本或漫画图片列表 |
+| 能力 | 动漫 | 漫画 | 小说 | 期望产出 |
+| --- | --- | --- | --- | --- |
+| `search` | 必需 | 必需 | 必需 | 作品列表（`id`、`title`、`cover`、`author`…） |
+| `detail` | 必需 | 必需 | 必需 | 单作品字段（简介、状态、标签、分卷…） |
+| `toc` | 必需 | 必需 | 必需 | 剧集/卷/章列表，可分组 |
+| `content` | 可选（`video`） | 必需（`images`） | 必需（`text` / `file`） | 视频源 / 图片列表 / 段落 / 文件 |
 
-### 4.1 能力对象
+> 仅提供资料、没有播放或正文的源可以省略 `content`；阅读器会提示「该源仅提供资料」。
+
+### 4.1 公共字段
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `url` | string | ✅ | 请求地址模板 |
+| `url` | string | ✅ | 请求地址模板（`search` 的 `index` 模式与 `toc` 的分卷扇出可省略） |
 | `method` | `"GET"` \| `"POST"` | ❌ | 默认 `GET` |
 | `body` | string | ❌ | POST 请求体模板 |
+| `headers` | object<string,string> | ❌ | 该能力附带的请求头，与规则包级请求头合并 |
 | `list` | FieldRule | ❌ | 列表条目选择器，每个条目作为后续字段的求值上下文 |
 | `fields` | object<string, FieldRule> | ❌ | 字段提取规则 |
 
+### 4.2 `search`
+
+| 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `mode` | `"query"` \| `"index"` | `query` | 远程关键词，或拉索引后本地过滤 |
+| `index` | object | — | `mode=index` 必填，见下 |
+| `filter` | FieldRule | — | `mode=index` 必填；`value` 为条目，`ctx.keyword` / `ctx.keywordNormalized` 可用 |
+| `pageSize` | int | `20` | 每页条数（本地分页或 `{{pageSize}}`） |
+| `pagination` | object | — | 远程分页信息：`totalItems`（FieldRule）与 `pageSize` |
+
+`index` 对象：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `url` | string | ✅ | 索引地址模板 |
+| `method` | GET/POST | ❌ | 默认 `GET` |
+| `body` | string | ❌ | POST 请求体 |
+| `list` | FieldRule | ✅ | 索引条目选择器 |
+| `ttlSeconds` | int | ❌ | 缓存时长，默认 `3600` |
+
+### 4.3 `detail`
+
+请求单作品详情。分卷/分组等数组字段使用对象数组规则：
+
+```json
+"volumes": {
+  "items": { "jsonPath": "$.data.volumes[*]" },
+  "fields": {
+    "id": { "jsonPath": "$.vid" },
+    "title": { "jsonPath": "$.title" }
+  }
+}
+```
+
+引擎会把 `volumes` 作为多值字段传给 `toc.fanOutFrom`。
+
+### 4.4 `toc`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `fanOutFrom` | string | 可选，如 `detail.volumes` 或 `search.volumes`；按该字段每个条目发起一次目录请求 |
+| `group` | object | 可选，`{"id": "vid", "title": "title"}`；把条目键映射为分组 id 与标题，必须与 `fanOutFrom` 一起使用 |
+
+- 无 `fanOutFrom`：单次请求，`list` + `fields` 产出平铺目录。
+- 有 `fanOutFrom` + `url` + `list`：逐组请求（例如按卷取章节）。
+- 有 `fanOutFrom` 且无 `url`/`list`：每个条目本身就是一章（例如分卷 EPUB），章节字段直接来自该条目。
+
+### 4.5 `content`
+
+| `mode` | 必填字段 | 可选字段 |
+| --- | --- | --- |
+| `video` | `url` 或 `urls` | `type`（`hls`/`mp4`）、`headers`、`referer`、`quality`、`danmakuUrl` |
+| `images` | `images`（数组） | `headers`、`referer` |
+| `text` | `body`（HTML/文本）或 `paragraphs` | `images`、`title` |
+| `file` | `url`、`format`（`epub`/`txt`） | `size`、`checksum` |
+
+可选 `resolve` 二段请求：`{"url": "...", "method": "GET", "fields": { ... }}`，其字段以 `{{resolve.*}}` 注入 `content.fields` 与资产地址模板。
+
+### 4.6 字段契约
+
+| 能力 | 必填 | 可选 |
+| --- | --- | --- |
+| `search` | `id`、`title` | `cover`、`author`、`subtitle`、`url`、`status`、`tags` |
+| `detail` | `title` | `cover`、`intro`、`author`、`status`、`tags`、`rating`、`year`、`episodeCount`、`volumes`、`aliases` |
+| `toc` | `title` + （`id` 或 `url`） | `order`、`group`、`duration`、`airdate`、`extra` |
+
 ## 5. 模板变量
 
-`url`、`body` 中的 `{{name}}` 会被替换：
+`url`、`body`、`template` 与 `const` 中的 `{{name}}` 会被替换：
 
 | 变量 | 可用能力 | 含义 |
 | --- | --- | --- |
 | `{{baseUrl}}` | 全部 | `meta.baseUrl` |
 | `{{key}}` | `search` | 经 URL 编码的关键词 |
+| `{{keywordNormalized}}` | `search` | 归一化关键词（去空白/标点、全角转半角、小写） |
 | `{{page}}` | `search` | 页码，从 1 开始 |
+| `{{pageSize}}` | `search` | 每页条数 |
+| `{{offset}}` | `search` | `(page - 1) * pageSize` |
 | `{{id}}` | `detail`、`toc` | 作品 id |
 | `{{url}}` | `detail`、`toc` | 作品详情页绝对地址 |
-| `{{chapterUrl}}` | `content` | 章节绝对地址 |
+| `{{chapter.id}}` / `{{chapter.url}}` / `{{chapter.title}}` | `content` | 章节字段 |
+| `{{chapter.<任意字段>}}` | `content` | 目录 `fields` 里声明的自定义字段（如 EPUB 的 `file`、`size`） |
+| `{{group.id}}` / `{{group.title}}` | `toc` | 分卷/线路分组字段 |
+| `{{resolve.*}}` | `content` | `resolve` 二段请求的字段 |
 
 未声明的变量视为规则错误，请求不会发出。
 
 ## 6. FieldRule（字段规则）
 
-### 6.1 取值来源（必须且只能声明一个）
+### 6.1 取值来源（必须且只能声明一个，或用 `items` 声明对象数组）
 
 | 键 | 说明 |
 | --- | --- |
@@ -92,6 +174,7 @@
 | `jsonPath` | JSONPath 表达式（用于 JSON 接口） |
 | `js` | JS 表达式，在沙箱内执行 |
 | `const` | 常量字符串 |
+| `items` | 对象数组的条目选择规则；与上面五个键互斥 |
 
 ### 6.2 后处理选项
 
@@ -101,26 +184,49 @@
 | `html` | bool | `false` | 取 `innerHtml` 而非文本 |
 | `regex` | string | — | 对结果做正则匹配 |
 | `group` | int | `1` | 正则捕获组序号 |
+| `multiple` | bool | `false` | 取全部匹配（多节点/数组），保持原顺序 |
+| `template` | string | — | 结果模板，支持 `{{value}}` 与 `{{ctx.xxx}}` |
 | `prefix` | string | `""` | 结果前缀 |
 | `suffix` | string | `""` | 结果后缀 |
 | `absolute` | bool | `false` | 把相对地址解析为绝对地址（基于 `baseUrl` 或当前页地址） |
-| `default` | string | — | 取不到值时的兜底 |
+| `htmlToText` | bool | `false` | 把 HTML 切成纯文本段落 |
+| `fallback` | FieldRule | — | 前一步为空时改用的规则（`default` 只能给常量） |
+| `default` | string | — | 取不到值时的常量兜底 |
+| `fields` | object<string, FieldRule> | — | 仅与 `items` 一起使用，逐项求值 |
 
 ### 6.3 求值顺序
 
 ```
 选择器/JS/常量
-  → attr 或 html 或 text
+  → attr 或 html 或 text 或 htmlToText
   → regex(group)
   → js 表达式（value 变量为当前结果）
+  → template（{{value}} / {{ctx.xxx}}）
   → prefix + 结果 + suffix
   → absolute 解析
-  → default 兜底
+  → fallback → default
 ```
 
-### 6.4 JS 表达式约定
+`multiple: true` 时对每个匹配项执行上述链，产出数组。
+
+### 6.4 对象数组
+
+```json
+"volumes": {
+  "items": { "jsonPath": "$.data.volumes[*]" },
+  "fields": {
+    "id": { "jsonPath": "$.vid" },
+    "title": { "jsonPath": "$.title" }
+  }
+}
+```
+
+求值结果为 `List<Map<String, String>>`，供 `toc.fanOutFrom` 与详情页分卷展示使用。
+
+### 6.5 JS 表达式约定
 
 - 沙箱内**只能**访问：`value`（前一步结果）、`ctx`（当前条目/页面的只读上下文）、`http`（受限 GET）。
+- 索引搜索的 `filter` 额外提供 `ctx.keyword` 与 `ctx.keywordNormalized`（归一化关键词）。
 - 不提供 `dart:io`、`dart:ffi`、文件系统、任意网络；`http` 仅允许访问规则声明的 host。
 - 表达式建议是纯函数形式：`"value => value.trim()"`，也可写语句块（M1 实现时确定）。
 - 单次执行上限 3 秒（`AppConstants.scriptTimeout`），超时即判规则失败。
@@ -132,20 +238,25 @@
 **error（阻止安装）**
 
 - 缺少 `schemaVersion` / 非整数 / 不受支持
-- 缺少 `meta`，或 `id` / `name` / `baseUrl` / `version` 为空
-- `baseUrl` 不是绝对 http(s)
-- `types` 含未知值
+- 缺少 `meta`，或 `id` / `name` / `type` / `baseUrl` / `version` 为空
+- `baseUrl` 不是绝对 http(s)；`type` 不是 `anime` / `comic` / `novel`
 - 缺少 `capabilities` 或为空
-- 能力缺少 `url`；`method` 不是 GET/POST
-- 字段规则没有取值来源，或声明了多个来源
-- `regex` 无法编译；`group` 非非负整数；`html` / `absolute` 非布尔
+- `search`：`mode` 非法；`query` 缺 `url`；`index` 缺 `index.url` / `index.list` / `filter`；`pageSize` 非正整数
+- `toc`：无 `fanOutFrom` 时缺 `url`；声明 `group` 但缺 `fanOutFrom`；声明 `list` 但没有 `url`
+- `content`：缺 `mode` 或 `mode` 非法；缺 `url`
+- `detail` / `content` / `search`（query）缺 `url`
+- `resolve` 缺 `url`
+- 能力 `method` 不是 GET/POST；`headers` 值不是字符串
+- 字段规则没有取值来源且没有 `items`，或声明了多个来源，或 `items` 与来源同时声明
+- `regex` 无法编译；`group` 非非负整数；`multiple` / `html` / `absolute` / `htmlToText` 非布尔
+- `fallback` / `items` 不是对象；`fields` 与取值来源同时出现
 
 **warning（不阻止安装）**
 
-- 未知字段（顶层、meta、request、能力、字段）
-- 未声明 `types`
+- 未知字段（顶层、meta、request、能力、能力子对象、字段）
 - `fields` 为空
 - 未知能力键
+- `query` 模式下声明了只在 `index` 使用的配置
 
 ## 8. 安全边界
 
@@ -161,7 +272,7 @@
 
 | schemaVersion | 变更 | 迁移 |
 | --- | --- | --- |
-| `1` | 初版：四种能力 + CSS/XPath/JSONPath/JS/常量取值 | — |
+| `1` | 初版（预发布）：四种能力 + CSS/XPath/JSONPath/JS/常量取值；单 `meta.type`；`content.mode`；`search.mode=index` + `filter`；`toc.fanOutFrom`/`group`；`FieldRule` 的 `multiple`/`template`/`fallback`/`items`/`fields`/`htmlToText`；`request.retry` | —（预发布阶段不升版本，字段可调整） |
 
 规则演进策略：
 

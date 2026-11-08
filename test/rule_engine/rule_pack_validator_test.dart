@@ -90,13 +90,82 @@ void main() {
       );
     });
 
-    test('未声明 types 只产生 warning', () {
+    test('缺少 meta.type 报错', () {
       final json = cloneDemoPack();
-      (json['meta'] as Map<String, Object?>).remove('types');
+      (json['meta'] as Map<String, Object?>).remove('type');
       final result = validator.validate(json);
 
-      expect(result.isValid, isTrue, reason: describe(result));
-      expect(result.warnings.map((issue) => issue.path), contains('meta.types'));
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('meta.type'));
+    });
+
+    test('未知 meta.type 报错', () {
+      final json = cloneDemoPack();
+      (json['meta'] as Map<String, Object?>)['type'] = 'game';
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('meta.type'));
+    });
+
+    test('content 缺少 mode 报错', () {
+      final json = cloneDemoPack();
+      final content =
+          (json['capabilities'] as Map<String, Object?>)['content'] as Map<String, Object?>;
+      content.remove('mode');
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('capabilities.content.mode'));
+    });
+
+    test('index 搜索缺少 filter 报错', () {
+      final json = cloneDemoPack();
+      final search =
+          (json['capabilities'] as Map<String, Object?>)['search'] as Map<String, Object?>;
+      search['mode'] = 'index';
+      search['index'] = <String, Object?>{
+        'url': '/index.json',
+        'list': <String, Object?>{'jsonPath': r'$.data[*]'},
+      };
+      search.remove('filter');
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('capabilities.search.filter'));
+    });
+
+    test('toc 的 group 必须与 fanOutFrom 一起使用', () {
+      final json = cloneDemoPack();
+      final toc = (json['capabilities'] as Map<String, Object?>)['toc'] as Map<String, Object?>;
+      toc['group'] = <String, Object?>{'id': 'vid', 'title': 'title'};
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('capabilities.toc.group'));
+    });
+
+    test('items 与取值来源同时声明报错', () {
+      final json = cloneDemoPack();
+      final detail =
+          (json['capabilities'] as Map<String, Object?>)['detail'] as Map<String, Object?>;
+      final volumes = (detail['fields'] as Map<String, Object?>)['volumes'] as Map<String, Object?>;
+      volumes['selector'] = '.volumes li';
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(
+        result.errors.map((issue) => issue.path),
+        contains('capabilities.detail.fields.volumes'),
+      );
+    });
+
+    test('未支持的 schemaVersion 报版本不兼容', () {
+      final json = cloneDemoPack()..['schemaVersion'] = 2;
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('schemaVersion'));
     });
   });
 }

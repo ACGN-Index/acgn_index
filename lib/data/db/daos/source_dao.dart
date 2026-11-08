@@ -20,6 +20,16 @@ class SourceDao extends DatabaseAccessor<AppDatabase> with _$SourceDaoMixin {
   Future<void> upsert(SourceRecordsCompanion record) =>
       into(sourceRecords).insertOnConflictUpdate(record);
 
+  Future<void> setEnabled(String id, bool enabled) {
+    final query = update(sourceRecords)..where((table) => table.id.equals(id));
+    return query.write(
+      SourceRecordsCompanion(
+        enabled: Value(enabled),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<int> deleteById(String id) =>
       (delete(sourceRecords)..where((table) => table.id.equals(id))).go();
 }

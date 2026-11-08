@@ -15,10 +15,33 @@ void main() {
       expect(pack.schemaVersion, kSupportedSchemaVersion);
       expect(pack.meta.id, 'demo.mock');
       expect(pack.meta.baseUrl, 'https://example.invalid');
-      expect(pack.meta.types, <MediaType>{MediaType.comic, MediaType.novel});
+      expect(pack.meta.type, MediaType.comic);
       expect(pack.request.timeoutMs, 15000);
-      expect(pack.request.headers['User-Agent'], 'ACGNIndex/0.1');
+      expect(pack.request.retry, 0);
+      expect(pack.request.headers['User-Agent'], 'ACGNIndex/0.2');
       expect(pack.capabilities.keys, containsAll(RuleCapability.values));
+      expect(
+        pack.capabilities[RuleCapability.content],
+        isA<ContentCapabilityRule>(),
+      );
+    });
+
+    test('解析新增的数组字段、兜底与模板', () {
+      final pack = RulePack.fromJson(loadDemoPack());
+      final detail = pack.capabilities[RuleCapability.detail]!;
+      final volumes = detail.fields['volumes']!;
+      expect(volumes.isObjectList, isTrue);
+      expect(volumes.items?.selector, '.volumes li');
+      expect(volumes.fields['title']?.selector, 'a');
+
+      final content = pack.capabilities[RuleCapability.content] as ContentCapabilityRule;
+      expect(content.mode, ContentMode.images);
+      expect(content.fields['images']?.multiple, isTrue);
+      expect(content.fields['referer']?.constant, '{{baseUrl}}');
+
+      final search = pack.capabilities[RuleCapability.search] as SearchCapabilityRule;
+      expect(search.mode, SearchMode.query);
+      expect(search.pagination?.pageSize, 20);
     });
 
     test('序列化后的 JSON 能再次解析且关键字段不变', () {
@@ -26,7 +49,7 @@ void main() {
       final reparsed = RulePack.parse(jsonEncode(original.toJson()));
 
       expect(reparsed.meta.id, original.meta.id);
-      expect(reparsed.meta.types, original.meta.types);
+      expect(reparsed.meta.type, original.meta.type);
       expect(reparsed.capabilities.length, original.capabilities.length);
 
       final originalSearch = original.capabilities[RuleCapability.search]!;
@@ -56,7 +79,13 @@ void main() {
     test('未知内容类型时抛出 RuleFormatException', () {
       final json = cloneDemoPack();
       final meta = json['meta'] as Map<String, Object?>;
-      meta['types'] = <String>['game'];
+      meta['type'] = 'game';
+
+      expect(() => RulePack.fromJson(json), throwsA(isA<RuleFormatException>()));
+    });
+
+    test('未支持的 schemaVersion 被拒绝', () {
+      final json = cloneDemoPack()..['schemaVersion'] = 2;
 
       expect(() => RulePack.fromJson(json), throwsA(isA<RuleFormatException>()));
     });

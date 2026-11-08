@@ -29,12 +29,20 @@ class DriftRuleSourceRepository implements RuleSourceRepository {
       rulePackJson: jsonEncode(source.pack.toJson()),
       version: Value(meta.version),
       schemaVersion: Value(source.pack.schemaVersion),
+      type: Value(meta.type.wireName),
+      origin: Value(source.origin.wireName),
+      readOnly: Value(source.readOnly),
+      notice: Value(meta.notice),
+      priority: Value(source.priority),
       enabled: Value(source.enabled),
       installedAt: Value(source.installedAt),
       updatedAt: Value(DateTime.now()),
     );
     return _dao.upsert(record);
   }
+
+  @override
+  Future<void> setEnabled(String id, bool enabled) => _dao.setEnabled(id, enabled);
 
   @override
   Future<void> delete(String id) async {
@@ -48,5 +56,8 @@ class DriftRuleSourceRepository implements RuleSourceRepository {
     pack: RulePack.parse(row.rulePackJson),
     enabled: row.enabled,
     installedAt: row.installedAt,
+    origin: RuleSourceOrigin.tryParse(row.origin) ?? RuleSourceOrigin.imported,
+    readOnly: row.readOnly,
+    priority: row.priority,
   );
 }

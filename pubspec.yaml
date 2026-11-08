@@ -47,4 +47,5 @@ flutter:
   assets:
     - assets/images/
     - assets/rules/
+    - assets/rules/builtin/
 

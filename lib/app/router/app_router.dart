@@ -1,8 +1,10 @@
 import 'package:acgn_index/app/router/app_destinations.dart';
 import 'package:acgn_index/domain/entities/comic_content.dart';
 import 'package:acgn_index/domain/entities/novel_content.dart';
+import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/entities/video_content.dart';
 import 'package:acgn_index/features/shell/app_shell.dart';
+import 'package:acgn_index/features/sources/rule_editor_page.dart';
 import 'package:acgn_index/features/viewer/comic_viewer_page.dart';
 import 'package:acgn_index/features/viewer/novel_viewer_page.dart';
 import 'package:acgn_index/features/viewer/video_viewer_page.dart';
@@ -20,7 +22,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
 
 /// 每次调用都返回全新实例，测试据此隔离导航状态。
 GoRouter createAppRouter() => GoRouter(
-  initialLocation: AppRoutes.library,
+  initialLocation: AppRoutes.discover,
   routes: <RouteBase>[
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
@@ -39,6 +41,10 @@ GoRouter createAppRouter() => GoRouter(
       ],
     ),
     // 查看器为全屏页：不带底部导航，内容通过 `extra` 传入。
+    GoRoute(
+      path: AppRoutes.ruleEditor,
+      builder: (context, state) => RuleEditorPage(source: _extraAs<RuleSource>(state)),
+    ),
     GoRoute(
       path: AppRoutes.videoViewer,
       builder: (context, state) => VideoViewerPage(content: _extraAs<VideoViewerContent>(state)),

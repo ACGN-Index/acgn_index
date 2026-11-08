@@ -17,17 +17,22 @@ class RequestRule {
     this.headers = const <String, String>{},
     this.timeoutMs = 15000,
     this.encoding = 'utf-8',
+    this.retry = 0,
   });
 
   factory RequestRule.fromJson(Map<String, Object?> json) => RequestRule(
     headers: json.stringMapOrNull('headers') ?? const <String, String>{},
     timeoutMs: json.intOrNull('timeoutMs') ?? 15000,
     encoding: json.stringOrNull('encoding') ?? 'utf-8',
+    retry: json.intOrNull('retry') ?? 0,
   );
 
   final Map<String, String> headers;
   final int timeoutMs;
   final String encoding;
+
+  /// 网络错误后的重试次数，0–2。
+  final int retry;
 
   Duration get timeout => Duration(milliseconds: timeoutMs);
 
@@ -35,20 +40,26 @@ class RequestRule {
     'headers': headers,
     'timeoutMs': timeoutMs,
     'encoding': encoding,
+    'retry': retry,
   };
 }
 
 /// 规则元信息。`id` 是规则源的唯一标识，一经发布不应修改。
+///
+/// 一个规则包只服务一类内容（[type]）。
 class RuleMeta {
   const RuleMeta({
     required this.id,
     required this.name,
+    required this.type,
     required this.baseUrl,
     required this.version,
     required this.author,
     required this.lang,
     this.description = '',
-    this.types = const <MediaType>{},
+    this.adult = false,
+    this.notice = '',
+    this.allowedHosts = const <String>[],
   });
 
   factory RuleMeta.fromJson(Map<String, Object?> json) {
@@ -60,28 +71,31 @@ class RuleMeta {
       return value;
     }
 
-    final types = <MediaType>{};
-    for (final item in json.listOrNull('types') ?? const <Object?>[]) {
-      final type = item is String ? MediaType.tryParse(item) : null;
-      if (type == null) {
-        throw RuleFormatException('meta.types 含未知内容类型: $item');
-      }
-      types.add(type);
+    final rawType = json.stringOrNull('type');
+    final type = MediaType.tryParse(rawType);
+    if (type == null) {
+      throw RuleFormatException('meta.type 必须是 anime / comic / novel，实际为 ${rawType ?? 'null'}');
     }
     return RuleMeta(
       id: required('id'),
       name: required('name'),
+      type: type,
       baseUrl: required('baseUrl'),
       version: required('version'),
       author: json.stringOrNull('author') ?? '',
       lang: json.stringOrNull('lang') ?? 'zh',
       description: json.stringOrNull('description') ?? '',
-      types: types,
+      adult: json.boolOrNull('adult') ?? false,
+      notice: json.stringOrNull('notice') ?? '',
+      allowedHosts: (json.listOrNull('allowedHosts') ?? const <Object?>[])
+          .whereType<String>()
+          .toList(growable: false),
     );
   }
 
   final String id;
   final String name;
+  final MediaType type;
   final String baseUrl;
   final String version;
   final String author;
@@ -90,17 +104,28 @@ class RuleMeta {
   final String lang;
 
   final String description;
-  final Set<MediaType> types;
+
+  /// 是否面向成人内容，发现页据此过滤。
+  final bool adult;
+
+  /// 来源与合规说明，内置规则集使用。
+  final String notice;
+
+  /// 除 `baseUrl` 之外允许请求的主机，用于索引与下载跨域的场景。
+  final List<String> allowedHosts;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'name': name,
+    'type': type.wireName,
     'baseUrl': baseUrl,
     'version': version,
     'author': author,
     'lang': lang,
     if (description.isNotEmpty) 'description': description,
-    'types': types.map((type) => type.wireName).toList(growable: false),
+    if (adult) 'adult': true,
+    if (notice.isNotEmpty) 'notice': notice,
+    if (allowedHosts.isNotEmpty) 'allowedHosts': allowedHosts,
   };
 }
 
@@ -121,6 +146,11 @@ class RulePack {
     if (schemaVersion == null) {
       throw const RuleFormatException('缺少 schemaVersion 字段');
     }
+    if (schemaVersion != kSupportedSchemaVersion) {
+      throw RuleFormatException(
+        '不支持的规则版本 $schemaVersion，当前支持 $kSupportedSchemaVersion；请重新导入或升级规则',
+      );
+    }
     final metaJson = json.mapOrNull('meta');
     if (metaJson == null) {
       throw const RuleFormatException('缺少 meta 字段');
@@ -134,6 +164,7 @@ class RulePack {
           throw RuleFormatException('未知能力: ${entry.key}');
         }
         capabilities[capability] = CapabilityRule.fromJson(
+          capability,
           asJsonMap(entry.value, path: 'capabilities.${entry.key}'),
         );
       }
@@ -165,6 +196,8 @@ class RulePack {
   final Map<RuleCapability, CapabilityRule> capabilities;
 
   String get id => meta.id;
+
+  MediaType get type => meta.type;
 
   bool supports(RuleCapability capability) => capabilities.containsKey(capability);
 

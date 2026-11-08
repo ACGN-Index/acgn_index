@@ -34,7 +34,7 @@ void main() {
     expect(source.id, 'demo.mock');
     expect(source.enabled, isTrue);
     expect(source.pack.capabilities.length, RuleCapability.values.length);
-    expect(source.pack.meta.types.map((type) => type.wireName), contains('comic'));
+    expect(source.pack.meta.type.wireName, 'comic');
   });
 
   test('同 id 再次保存会覆盖而不是新增', () async {

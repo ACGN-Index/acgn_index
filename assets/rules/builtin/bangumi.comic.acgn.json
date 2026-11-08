@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "id": "builtin.bangumi.comic",
+    "type": "comic",
+    "name": "Bangumi 番组计划（漫画资料）",
+    "baseUrl": "https://api.bgm.tv",
+    "version": "1.0.0",
+    "author": "acgn_index",
+    "lang": "zh",
+    "description": "Bangumi 公开 API，提供漫画条目资料与评分。",
+    "notice": "仅提供公开资料，不含图片内容；可读漫画源需自行导入规则。"
+  },
+  "request": {
+    "headers": {
+      "User-Agent": "ACGNIndex/0.1 (https://github.com/ACGN-Index/ACGN-Index)",
+      "Accept": "application/json"
+    },
+    "timeoutMs": 15000,
+    "encoding": "utf-8",
+    "retry": 1
+  },
+  "capabilities": {
+    "search": {
+      "mode": "query",
+      "url": "/v0/search/subjects?limit={{pageSize}}&offset={{offset}}",
+      "method": "POST",
+      "body": "{\"keyword\":\"{{key}}\",\"filter\":{\"type\":[1]}}",
+      "pageSize": 20,
+      "list": {
+        "jsonPath": "$.data[*]"
+      },
+      "fields": {
+        "id": {
+          "jsonPath": "$.id"
+        },
+        "title": {
+          "jsonPath": "$.name_cn",
+          "fallback": {
+            "jsonPath": "$.name"
+          }
+        },
+        "cover": {
+          "jsonPath": "$.images.common"
+        },
+        "subtitle": {
+          "jsonPath": "$.date"
+        }
+      },
+      "pagination": {
+        "pageSize": 20,
+        "totalItems": {
+          "jsonPath": "$.total"
+        }
+      }
+    },
+    "detail": {
+      "url": "/v0/subjects/{{id}}",
+      "fields": {
+        "title": {
+          "jsonPath": "$.name_cn",
+          "fallback": {
+            "jsonPath": "$.name"
+          }
+        },
+        "cover": {
+          "jsonPath": "$.images.large"
+        },
+        "intro": {
+          "jsonPath": "$.summary"
+        },
+        "rating": {
+          "jsonPath": "$.rating.score"
+        },
+        "year": {
+          "jsonPath": "$.date"
+        },
+        "tags": {
+          "jsonPath": "$.tags[*].name",
+          "multiple": true
+        }
+      }
+    }
+  }
+}
