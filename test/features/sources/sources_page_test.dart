@@ -75,4 +75,50 @@ void main() {
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
   });
+
+  testWidgets('内置规则没有删除入口', (tester) async {
+    await pumpPage(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.more_vert), findsNothing);
+  });
+
+  testWidgets('已导入规则可以删除', (tester) async {
+    await repository.save(importedSource(id: 'user.demo', name: '我的规则'));
+    await pumpPage(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('已导入'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    expect(find.text('删除规则？'), findsOneWidget);
+    expect(find.textContaining('我的规则'), findsWidgets);
+
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    final sources = await repository.getAll();
+    expect(sources.map((source) => source.id), isNot(contains('user.demo')));
+    expect(find.text('我的规则'), findsNothing);
+  });
+
+  testWidgets('取消删除时保留规则', (tester) async {
+    await repository.save(importedSource(id: 'user.keep', name: '保留规则'));
+    await pumpPage(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    final sources = await repository.getAll();
+    expect(sources.map((source) => source.id), contains('user.keep'));
+  });
 }

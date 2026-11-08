@@ -51,6 +51,35 @@ class FakeRuleSourceRepository implements RuleSourceRepository {
   Future<void> close() => _controller.close();
 }
 
+/// 构造一个最小可用的已导入规则源，供删除等交互测试使用。
+RuleSource importedSource({
+  required String id,
+  required String name,
+  MediaType type = MediaType.comic,
+  bool enabled = true,
+}) => RuleSource(
+  pack: RulePack(
+    schemaVersion: kSupportedSchemaVersion,
+    meta: RuleMeta(
+      id: id,
+      name: name,
+      type: type,
+      baseUrl: 'https://example.invalid',
+      version: '1.0.0',
+      author: 'tester',
+      lang: 'zh',
+    ),
+    capabilities: <RuleCapability, CapabilityRule>{
+      RuleCapability.search: const SearchCapabilityRule(
+        url: '/search?q={{key}}',
+        fields: <String, FieldRule>{'title': FieldRule(selector: '.title')},
+      ),
+    },
+  ),
+  enabled: enabled,
+  installedAt: DateTime(2026, 3, 15),
+);
+
 /// 构造一个最小可用的内置规则源，供 UI 测试使用。
 RuleSource builtinSource({
   required String id,

@@ -28,6 +28,27 @@
   "sourcesTypeComic": "漫画",
   "sourcesTypeNovel": "小说",
   "sourcesAddRule": "添加规则",
+  "sourcesDelete": "删除",
+  "sourcesMore": "更多操作",
+  "sourcesDeleteTitle": "删除规则？",
+  "sourcesDeleteBody": "将删除「{name}」及其本地配置，此操作不可撤销。",
+  "@sourcesDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sourcesDeleteConfirm": "删除",
+  "sourcesDeleted": "已删除「{name}」",
+  "@sourcesDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sourcesDeleteFailed": "删除失败，请稍后重试。",
   "ruleEditorTitle": "规则编辑器",
   "ruleEditorNewTitle": "新建规则",
   "ruleEditorEditTitle": "编辑规则",

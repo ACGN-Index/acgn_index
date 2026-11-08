@@ -1,12 +1,16 @@
 import 'package:acgn_index/app/router/app_destinations.dart';
+import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/core/widgets/empty_state_view.dart';
 import 'package:acgn_index/data/providers.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
+import 'package:acgn_index/features/sources/delete_rule_dialog.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+enum _SourceAction { delete }
 
 /// 规则管理：内置规则集与已导入规则。
 class SourcesPage extends ConsumerStatefulWidget {
@@ -137,13 +141,65 @@ class _SourceTile extends ConsumerWidget {
             ),
         ],
       ),
-      trailing: Switch(
-        value: source.enabled,
-        onChanged: (value) => ref.read(ruleSourceRepositoryProvider).setEnabled(source.id, value),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Switch(
+            value: source.enabled,
+            onChanged: (value) =>
+                ref.read(ruleSourceRepositoryProvider).setEnabled(source.id, value),
+          ),
+          if (!source.isBuiltin)
+            PopupMenuButton<_SourceAction>(
+              tooltip: l10n.sourcesMore,
+              icon: const Icon(Icons.more_vert),
+              onSelected: (action) async {
+                if (action == _SourceAction.delete) {
+                  await _delete(context, ref, l10n);
+                }
+              },
+              itemBuilder: (context) => <PopupMenuEntry<_SourceAction>>[
+                PopupMenuItem<_SourceAction>(
+                  value: _SourceAction.delete,
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(Icons.delete_outline, size: 20),
+                      const SizedBox(width: 12),
+                      Text(l10n.sourcesDelete),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       onTap: () => context.push(AppRoutes.ruleEditor, extra: source),
       isThreeLine: source.notice.isNotEmpty || source.readOnly,
     );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref, AppLocalizations l10n) async {
+    final confirmed = await confirmDeleteRule(context, name: source.name);
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    try {
+      await ref.read(ruleSourceRepositoryProvider).delete(source.id);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.sourcesDeleted(source.name))));
+    } on Object catch (error, stackTrace) {
+      AppLogger.of('sources').severe('删除规则失败', error, stackTrace);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.sourcesDeleteFailed)));
+    }
   }
 
   IconData _iconFor(MediaType type) => switch (type) {

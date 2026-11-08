@@ -4,6 +4,7 @@ import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/data/providers.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
+import 'package:acgn_index/features/sources/delete_rule_dialog.dart';
 import 'package:acgn_index/features/sources/rule_editor/rule_draft.dart';
 import 'package:acgn_index/features/sources/rule_editor/visual_rule_editor.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
@@ -114,6 +115,8 @@ class _RuleEditorPageState extends ConsumerState<RuleEditorPage> {
 
   bool get _isDirty => !_readOnly && _controller.text != _initialText;
 
+  bool get _canDelete => widget.source != null && !widget.source!.isBuiltin;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -145,6 +148,12 @@ class _RuleEditorPageState extends ConsumerState<RuleEditorPage> {
               tooltip: l10n.ruleEditorValidate,
               icon: const Icon(Icons.fact_check_outlined),
             ),
+            if (_canDelete)
+              IconButton(
+                onPressed: _delete,
+                tooltip: l10n.sourcesDelete,
+                icon: const Icon(Icons.delete_outline),
+              ),
           ],
         ),
         body: Column(
@@ -245,6 +254,31 @@ class _RuleEditorPageState extends ConsumerState<RuleEditorPage> {
     }
     if (_issues.isNotEmpty) {
       setState(() => _issues = const <RuleIssue>[]);
+    }
+  }
+
+  Future<void> _delete() async {
+    final source = widget.source;
+    if (source == null) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await confirmDeleteRule(context, name: source.name);
+    if (!confirmed || !mounted) {
+      return;
+    }
+    try {
+      await ref.read(ruleSourceRepositoryProvider).delete(source.id);
+      if (!mounted) {
+        return;
+      }
+      _showMessage(l10n.sourcesDeleted(source.name));
+      Navigator.of(context).pop();
+    } on Object catch (error, stackTrace) {
+      AppLogger.of('rule-editor').severe('删除规则失败', error, stackTrace);
+      if (mounted) {
+        _showMessage(l10n.sourcesDeleteFailed);
+      }
     }
   }
 

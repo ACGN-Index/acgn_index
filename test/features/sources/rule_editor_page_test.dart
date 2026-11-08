@@ -115,4 +115,37 @@ void main() {
     final sources = await repository.getAll();
     expect(sources.map((source) => source.id), contains('builtin.demo.副本'));
   });
+
+  testWidgets('已导入规则可以在编辑器中删除', (tester) async {
+    final imported = importedSource(id: 'user.custom', name: '自定义规则');
+    await repository.save(imported);
+
+    await pumpEditor(tester, source: imported);
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(await repository.getAll(), isEmpty);
+  });
+
+  testWidgets('内置规则不显示删除入口', (tester) async {
+    final builtin = builtinSource(
+      id: 'builtin.demo',
+      name: 'Demo',
+      type: MediaType.comic,
+      enabled: true,
+      priority: 0,
+    );
+    await repository.save(builtin);
+
+    await pumpEditor(tester, source: builtin);
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+  });
 }
