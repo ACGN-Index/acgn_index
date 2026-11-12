@@ -11,6 +11,7 @@ class VideoPlaybackState {
     this.position = Duration.zero,
     this.duration = Duration.zero,
     this.buffering = false,
+    this.playing = false,
   });
 
   final VideoPlaybackStatus status;
@@ -18,7 +19,13 @@ class VideoPlaybackState {
   final Duration duration;
   final bool buffering;
 
-  bool get isPlaying => status == VideoPlaybackStatus.playing;
+  /// 后端真实的播放状态，与 [status] 解耦。
+  ///
+  /// 网络抖动时 libmpv 会继续播放并上报错误，[status] 可能被标记成 failed，
+  /// 但画面其实还在走。此时暂停按钮必须依然生效，所以不能只看 [status]。
+  final bool playing;
+
+  bool get isPlaying => playing;
   bool get isLoading => status == VideoPlaybackStatus.loading;
   bool get hasFailed => status == VideoPlaybackStatus.failed;
 
@@ -27,11 +34,13 @@ class VideoPlaybackState {
     Duration? position,
     Duration? duration,
     bool? buffering,
+    bool? playing,
   }) => VideoPlaybackState(
     status: status ?? this.status,
     position: position ?? this.position,
     duration: duration ?? this.duration,
     buffering: buffering ?? this.buffering,
+    playing: playing ?? this.playing,
   );
 }
 

@@ -10,10 +10,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _FakeVideoPlaybackController extends VideoPlaybackController {
   final List<ViewerMedia> opened = <ViewerMedia>[];
+  int pauseCount = 0;
   VideoPlaybackState _state = const VideoPlaybackState();
 
   @override
   VideoPlaybackState get state => _state;
+
+  /// 模拟后端推送状态（例如 libmpv 在网络抖动时误报错误）。
+  void emit(VideoPlaybackState next) {
+    _state = next;
+    notifyListeners();
+  }
 
   @override
   Widget buildSurface(BuildContext context) => const ColoredBox(color: Color(0xFF000000));
@@ -32,13 +39,14 @@ class _FakeVideoPlaybackController extends VideoPlaybackController {
 
   @override
   Future<void> play() async {
-    _state = _state.copyWith(status: VideoPlaybackStatus.playing);
+    _state = _state.copyWith(status: VideoPlaybackStatus.playing, playing: true);
     notifyListeners();
   }
 
   @override
   Future<void> pause() async {
-    _state = _state.copyWith(status: VideoPlaybackStatus.paused);
+    pauseCount++;
+    _state = _state.copyWith(status: VideoPlaybackStatus.paused, playing: false);
     notifyListeners();
   }
 
@@ -130,5 +138,27 @@ void main() {
     await tester.pump();
 
     expect(controller.opened, hasLength(2));
+  });
+
+  testWidgets('状态被误标为失败但后端仍在播放时，暂停依然生效', (tester) async {
+    final controller = _FakeVideoPlaybackController();
+    await _pumpPage(tester, controller, _content());
+
+    controller.emit(
+      const VideoPlaybackState(
+        status: VideoPlaybackStatus.failed,
+        playing: true,
+        duration: Duration(minutes: 1),
+        position: Duration(seconds: 51),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('视频加载失败，请检查网络或链接。'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('暂停'));
+    await tester.pump();
+
+    expect(controller.pauseCount, 1);
   });
 }
