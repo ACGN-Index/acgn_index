@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:acgn_index/core/models/media_type.dart';
+import 'package:acgn_index/domain/entities/rule_auth.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
+import 'package:acgn_index/domain/repositories/rule_auth_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_source_repository.dart';
 import 'package:acgn_index/rule_engine/rule_engine.dart';
 
@@ -51,12 +53,55 @@ class FakeRuleSourceRepository implements RuleSourceRepository {
   Future<void> close() => _controller.close();
 }
 
+/// 内存登录凭据仓储，避免 widget 测试访问真实数据库。
+class FakeRuleAuthRepository implements RuleAuthRepository {
+  FakeRuleAuthRepository([Map<String, RuleAuth> auths = const <String, RuleAuth>{}])
+    : _auths = Map<String, RuleAuth>.of(auths);
+
+  final Map<String, RuleAuth> _auths;
+  final StreamController<Set<String>> _controller = StreamController<Set<String>>.broadcast();
+
+  Map<String, RuleAuth> get auths => Map<String, RuleAuth>.unmodifiable(_auths);
+
+  @override
+  Stream<Set<String>> watchLoggedInRuleIds() async* {
+    yield _loggedInIds();
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<RuleAuth?> find(String ruleId) async => _auths[ruleId];
+
+  @override
+  Future<void> save(RuleAuth auth) async {
+    if (auth.isEmpty) {
+      _auths.remove(auth.ruleId);
+    } else {
+      _auths[auth.ruleId] = auth;
+    }
+    _emit();
+  }
+
+  @override
+  Future<void> delete(String ruleId) async {
+    _auths.remove(ruleId);
+    _emit();
+  }
+
+  Set<String> _loggedInIds() => _auths.keys.toSet();
+
+  void _emit() => _controller.add(_loggedInIds());
+
+  Future<void> close() => _controller.close();
+}
+
 /// 构造一个最小可用的已导入规则源，供删除等交互测试使用。
 RuleSource importedSource({
   required String id,
   required String name,
   MediaType type = MediaType.comic,
   bool enabled = true,
+  RuleLoginRule? login,
 }) => RuleSource(
   pack: RulePack(
     schemaVersion: kSupportedSchemaVersion,
@@ -69,6 +114,7 @@ RuleSource importedSource({
       author: 'tester',
       lang: 'zh',
     ),
+    login: login,
     capabilities: <RuleCapability, CapabilityRule>{
       RuleCapability.search: const SearchCapabilityRule(
         url: '/search?q={{key}}',

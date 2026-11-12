@@ -29,6 +29,8 @@ class _VisualRuleEditorState extends State<VisualRuleEditor> {
   Map<String, Object?> get _request =>
       asJsonMapOrNull(_json['request']) ?? const <String, Object?>{};
 
+  Map<String, Object?>? get _login => asJsonMapOrNull(_json['login']);
+
   Map<String, Object?>? _capability(String key) {
     final capabilities = asJsonMapOrNull(_json['capabilities']);
     return asJsonMapOrNull(capabilities?[key]);
@@ -40,6 +42,23 @@ class _VisualRuleEditorState extends State<VisualRuleEditor> {
 
   void _updateRequest(void Function(Map<String, Object?> request) action) {
     _draft.mutate((json) => action(ensureJsonMap(json, 'request')));
+  }
+
+  void _updateLogin(void Function(Map<String, Object?> login) action) {
+    _draft.mutate((json) => action(ensureJsonMap(json, 'login')));
+  }
+
+  void _setLoginEnabled(bool enabled) {
+    _draft.mutate((json) {
+      if (enabled) {
+        json['login'] = <String, Object?>{
+          'mode': 'webview',
+          'url': '{{baseUrl}}/login',
+        };
+      } else {
+        json.remove('login');
+      }
+    });
   }
 
   void _updateCapability(
@@ -97,6 +116,7 @@ class _VisualRuleEditorState extends State<VisualRuleEditor> {
     final sections = <(String, IconData)>[
       (l10n.ruleSectionBasic, Icons.badge_outlined),
       (l10n.ruleSectionRequest, Icons.http),
+      (l10n.ruleSectionLogin, Icons.login),
       (l10n.ruleSectionSearch, Icons.search),
       (l10n.ruleSectionDetail, Icons.info_outline),
       (l10n.ruleSectionToc, Icons.list_alt_outlined),
@@ -124,9 +144,10 @@ class _VisualRuleEditorState extends State<VisualRuleEditor> {
   Widget _buildSection(AppLocalizations l10n) => switch (_section) {
     0 => _basicSection(l10n),
     1 => _requestSection(l10n),
-    2 => _searchSection(l10n),
-    3 => _detailSection(l10n),
-    4 => _tocSection(l10n),
+    2 => _loginSection(l10n),
+    3 => _searchSection(l10n),
+    4 => _detailSection(l10n),
+    5 => _tocSection(l10n),
     _ => _contentSection(l10n),
   };
 
@@ -292,6 +313,83 @@ class _VisualRuleEditorState extends State<VisualRuleEditor> {
             }
           }),
         ),
+      ],
+    );
+  }
+
+  Widget _loginSection(AppLocalizations l10n) {
+    final login = _login;
+    final enabled = login != null;
+    final mode = readString(login ?? const <String, Object?>{}, 'mode').isEmpty
+        ? 'webview'
+        : readString(login!, 'mode');
+    return EditorSectionCard(
+      title: l10n.ruleSectionLogin,
+      description: l10n.ruleSectionLoginDesc,
+      icon: Icons.login,
+      children: <Widget>[
+        EditorSwitchField(
+          key: const ValueKey<String>('visual.login.enabled'),
+          label: l10n.ruleLoginEnabled,
+          helper: l10n.ruleLoginEnabledHelp,
+          value: enabled,
+          onChanged: _setLoginEnabled,
+        ),
+        if (login != null) ...<Widget>[
+          EditorChoiceField<String>(
+            label: l10n.ruleLoginMode,
+            value: mode,
+            helper: mode == 'headers'
+                ? l10n.ruleLoginModeHeadersHelp
+                : l10n.ruleLoginModeWebviewHelp,
+            choices: <EditorChoice<String>>[
+              EditorChoice(value: 'webview', label: l10n.ruleLoginModeWebview),
+              EditorChoice(value: 'headers', label: l10n.ruleLoginModeHeaders),
+            ],
+            onChanged: (value) => _updateLogin((login) {
+              login['mode'] = value;
+              if (value == 'webview' && readString(login, 'url').isEmpty) {
+                login['url'] = '{{baseUrl}}/login';
+              }
+            }),
+          ),
+          if (mode != 'headers')
+            EditorTextField(
+              key: const ValueKey<String>('visual.login.url'),
+              label: l10n.ruleLoginUrl,
+              hint: l10n.ruleLoginUrlHint,
+              value: readString(login, 'url'),
+              onChanged: (text) => _updateLogin(
+                (login) => writeString(login, 'url', text.trim(), keepEmpty: true),
+              ),
+            ),
+          EditorTextField(
+            label: l10n.ruleLoginSuccessPattern,
+            helper: l10n.ruleLoginSuccessPatternHelp,
+            value: readString(login, 'successUrlPattern'),
+            onChanged: (text) => _updateLogin(
+              (login) => writeString(login, 'successUrlPattern', text.trim()),
+            ),
+          ),
+          EditorStringListField(
+            label: l10n.ruleLoginCookieNames,
+            helper: l10n.ruleLoginCookieNamesHelp,
+            addLabel: l10n.ruleAddCookieName,
+            value: readStringList(login, 'cookieNames'),
+            onChanged: (values) =>
+                _updateLogin((login) => writeStringList(login, 'cookieNames', values)),
+          ),
+          EditorStringMapField(
+            label: l10n.ruleLoginHeaders,
+            helper: l10n.ruleLoginHeadersHelp,
+            addLabel: l10n.ruleAddHeader,
+            keyLabel: l10n.ruleHeaderName,
+            valueLabel: l10n.ruleHeaderValue,
+            value: readStringMap(login, 'headers'),
+            onChanged: (values) =>
+                _updateLogin((login) => writeStringMap(login, 'headers', values)),
+          ),
+        ],
       ],
     );
   }

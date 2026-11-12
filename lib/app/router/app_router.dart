@@ -7,9 +7,11 @@ import 'package:acgn_index/domain/entities/video_content.dart';
 import 'package:acgn_index/features/detail/work_detail_page.dart';
 import 'package:acgn_index/features/shell/app_shell.dart';
 import 'package:acgn_index/features/sources/rule_editor_page.dart';
+import 'package:acgn_index/features/sources/rule_login_page.dart';
 import 'package:acgn_index/features/viewer/comic_viewer_page.dart';
 import 'package:acgn_index/features/viewer/novel_viewer_page.dart';
 import 'package:acgn_index/features/viewer/video_viewer_page.dart';
+import 'package:acgn_index/rule_engine/models/rule_pack.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -46,6 +48,10 @@ GoRouter createAppRouter() => GoRouter(
     GoRoute(
       path: AppRoutes.ruleEditor,
       builder: (context, state) => RuleEditorPage(source: _extraAs<RuleSource>(state)),
+    ),
+    GoRoute(
+      path: AppRoutes.ruleLogin,
+      builder: (context, state) => RuleLoginPage(pack: _extraAs<RulePack>(state)),
     ),
     GoRoute(
       path: AppRoutes.workDetail,

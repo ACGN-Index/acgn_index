@@ -16,6 +16,9 @@ abstract final class AppRoutes {
   /// 规则编辑器是全屏页，挂在根路由上。
   static const String ruleEditor = '/rule-editor';
 
+  /// 规则登录页，入参为 `RulePack`。
+  static const String ruleLogin = '/rule-login';
+
   /// 作品详情是全屏页，从发现页卡片进入。
   static const String workDetail = '/work';
 

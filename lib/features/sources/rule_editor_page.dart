@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:acgn_index/app/router/app_destinations.dart';
 import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/data/providers.dart';
@@ -11,6 +12,7 @@ import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:acgn_index/rule_engine/rule_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 新建规则时预填的骨架，能直接通过校验。
 const String kRuleEditorTemplate = r'''
@@ -144,6 +146,11 @@ class _RuleEditorPageState extends ConsumerState<RuleEditorPage> {
                 icon: const Icon(Icons.format_align_left),
               ),
             IconButton(
+              onPressed: _openLogin,
+              tooltip: l10n.ruleLoginAction,
+              icon: const Icon(Icons.login),
+            ),
+            IconButton(
               onPressed: _validate,
               tooltip: l10n.ruleEditorValidate,
               icon: const Icon(Icons.fact_check_outlined),
@@ -255,6 +262,30 @@ class _RuleEditorPageState extends ConsumerState<RuleEditorPage> {
     if (_issues.isNotEmpty) {
       setState(() => _issues = const <RuleIssue>[]);
     }
+  }
+
+  Future<void> _openLogin() async {
+    final l10n = AppLocalizations.of(context);
+    final validation = _runValidation(l10n);
+    if (validation == null) {
+      return;
+    }
+    setState(() => _issues = validation.issues);
+    if (!validation.isValid) {
+      return;
+    }
+    final RulePack pack;
+    try {
+      pack = RulePack.fromJson(_decodeObject(_controller.text) ?? const <String, Object?>{});
+    } on AppException catch (error) {
+      _showMessage(error.message);
+      return;
+    }
+    if (pack.login == null) {
+      _showMessage(l10n.ruleLoginNotConfigured);
+      return;
+    }
+    await context.push<bool>(AppRoutes.ruleLogin, extra: pack);
   }
 
   Future<void> _delete() async {

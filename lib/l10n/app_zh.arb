@@ -59,6 +59,29 @@
   "sourcesAddRule": "添加规则",
   "sourcesDelete": "删除",
   "sourcesMore": "更多操作",
+  "sourcesLogin": "登录",
+  "sourcesRelogin": "重新登录",
+  "sourcesLoggedIn": "已登录",
+  "sourcesLogout": "退出登录",
+  "sourcesLogoutTitle": "退出登录？",
+  "sourcesLogoutBody": "将删除「{name}」保存在本地的 Cookie 与请求头。",
+  "@sourcesLogoutBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sourcesLogoutConfirm": "退出登录",
+  "sourcesLoggedOut": "已退出「{name}」的登录状态。",
+  "@sourcesLoggedOut": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sourcesLogoutFailed": "退出登录失败，请稍后重试。",
   "sourcesDeleteTitle": "删除规则？",
   "sourcesDeleteBody": "将删除「{name}」及其本地配置，此操作不可撤销。",
   "@sourcesDeleteBody": {
@@ -116,6 +139,62 @@
   "ruleSectionBasicDesc": "规则包的身份信息与站点地址。",
   "ruleSectionRequest": "请求设置",
   "ruleSectionRequestDesc": "所有能力共用的请求默认值。",
+  "ruleSectionLogin": "登录",
+  "ruleSectionLoginDesc": "声明登录方式与登录后附加的请求头。凭据只保存在本地，不会写入规则包。",
+  "ruleLoginEnabled": "启用登录",
+  "ruleLoginEnabledHelp": "需要登录的站点在这里配置登录方式；关闭后规则包不包含 login 字段。",
+  "ruleLoginMode": "登录方式",
+  "ruleLoginModeWebview": "WebView 网页登录",
+  "ruleLoginModeHeaders": "手动请求头",
+  "ruleLoginModeWebviewHelp": "在应用内打开登录页，登录完成后自动抓取 Cookie。",
+  "ruleLoginModeHeadersHelp": "由用户手动填写 Token / Authorization 等请求头。",
+  "ruleLoginUrl": "登录页地址",
+  "ruleLoginUrlHint": "/login 或完整地址",
+  "ruleLoginSuccessPattern": "登录成功 URL 正则",
+  "ruleLoginSuccessPatternHelp": "页面地址匹配时提示登录成功，可留空。",
+  "ruleLoginCookieNames": "需要保留的 Cookie",
+  "ruleLoginCookieNamesHelp": "留空表示抓取该站点的全部 Cookie。",
+  "ruleAddCookieName": "添加 Cookie 名",
+  "ruleLoginHeaders": "登录后请求头",
+  "ruleLoginHeadersHelp": "会附加到该规则的所有请求；值支持 cookie 模板（见规则规范）。",
+  "ruleLoginAction": "登录",
+  "ruleLoginNotConfigured": "请先在「登录」分区启用并配置登录方式。",
+  "ruleLoginTitle": "{name} · 登录",
+  "@ruleLoginTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleLoginMissingPack": "缺少规则参数，无法打开登录页。",
+  "ruleLoginNoConfig": "该规则没有登录配置。",
+  "ruleLoginMissingUrl": "登录页地址无效或不在允许的主机列表内。",
+  "ruleLoginWebViewUnsupported": "当前设备无法使用内置 WebView，请手动填写 Cookie 或请求头。",
+  "ruleLoginHeadersModeHint": "该规则使用手动请求头登录；填写后点击下方按钮保存。",
+  "ruleLoginSuccessDetected": "已检测到登录成功，请保存登录状态。",
+  "ruleLoginLoadFailed": "登录页加载失败：{message}",
+  "@ruleLoginLoadFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleLoginManualTitle": "手动设置 Cookie / 请求头",
+  "ruleLoginCookies": "Cookie",
+  "ruleLoginCookiesHint": "sessionid=...; token=...",
+  "ruleLoginCookiesHelp": "会以 Cookie 请求头发送；WebView 抓取到的 Cookie 也会显示在这里。",
+  "ruleLoginSave": "保存登录状态",
+  "ruleLoginSaved": "登录状态已保存。",
+  "ruleLoginSaveFailed": "登录状态保存失败，请稍后重试。",
+  "ruleLoginEmpty": "没有可保存的登录信息。",
+  "ruleLoginClear": "清除登录状态",
+  "ruleLoginClearTitle": "清除登录状态？",
+  "ruleLoginClearBody": "将删除本地保存的 Cookie 与请求头。",
+  "ruleLoginClearConfirm": "清除",
+  "ruleLoginCleared": "已清除登录状态。",
+  "ruleLoginRefresh": "刷新登录页",
   "ruleSectionSearch": "搜索",
   "ruleSectionSearchDesc": "按关键词搜索，或拉取索引后本地过滤，产出作品列表。",
   "ruleSectionDetail": "详情",
@@ -267,6 +346,57 @@
   "@detailFileOnly": {
     "placeholders": {
       "format": {
+        "type": "String"
+      }
+    }
+  },
+  "detailContentSources": "内容来源",
+  "detailContentSourcesSearching": "正在检索其他来源…",
+  "detailContentSourcesEmpty": "没有找到提供该作品内容的来源。",
+  "detailContentSourcesNoProvider": "没有可用的资源提供者，可在「规则」页启用带正文能力的规则。",
+  "detailContentSourcesLoadFailed": "内容来源检索失败，请稍后重试。",
+  "detailContentSourcesFailedProvider": "该来源检索失败，可重试或改词。",
+  "detailContentSourcesRetry": "重试",
+  "detailContentSourcesRefresh": "刷新",
+  "detailContentSourcesResultCount": "{count} 个结果",
+  "@detailContentSourcesResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "detailContentSourcesStatusNoResult": "没有结果",
+  "detailContentSourcesStatusFailed": "检索失败",
+  "detailContentSourcesSummary": "{providers} 个来源 · {results} 个结果",
+  "@detailContentSourcesSummary": {
+    "placeholders": {
+      "providers": {
+        "type": "int"
+      },
+      "results": {
+        "type": "int"
+      }
+    }
+  },
+  "detailContentSourcesKeywordUsed": "检索词：{keyword}",
+  "@detailContentSourcesKeywordUsed": {
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "detailContentSourcesKeywordTitle": "修改检索词",
+  "detailContentSourcesKeywordHint": "输入作品名",
+  "detailContentSourcesApply": "确定",
+  "detailContentSourcesChangeKeyword": "修改检索词",
+  "detailContentSourcesRefreshProvider": "重新检索",
+  "detailContentSourcesUseAlias": "使用别名",
+  "detailContentSourcesActions": "{name} 的更多操作",
+  "@detailContentSourcesActions": {
+    "placeholders": {
+      "name": {
         "type": "String"
       }
     }

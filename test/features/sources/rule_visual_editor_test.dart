@@ -205,4 +205,27 @@ void main() {
     final text = await readJsonText(tester);
     expect(text, contains('"author":'));
   });
+
+  testWidgets('可以启用并配置登录', (tester) async {
+    await pumpEditor(tester);
+    await openSection(tester, '登录');
+
+    final toggle = find.byKey(const ValueKey<String>('visual.login.enabled'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+
+    var text = await readJsonText(tester);
+    expect(text, contains('"login":'));
+    expect(text, contains('"mode": "webview"'));
+
+    await tester.tap(find.text('可视化'));
+    await tester.pumpAndSettle();
+    await openSection(tester, '登录');
+    await tester.tap(find.text('手动请求头'));
+    await tester.pumpAndSettle();
+
+    text = await readJsonText(tester);
+    expect(text, contains('"mode": "headers"'));
+  });
 }

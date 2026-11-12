@@ -1,8 +1,11 @@
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/data/providers.dart';
+import 'package:acgn_index/domain/entities/rule_auth.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
+import 'package:acgn_index/features/sources/rule_login/rule_login_providers.dart';
 import 'package:acgn_index/features/sources/sources_page.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
+import 'package:acgn_index/rule_engine/rule_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,8 +14,10 @@ import 'sources_test_helpers.dart';
 
 void main() {
   late FakeRuleSourceRepository repository;
+  late FakeRuleAuthRepository authRepository;
 
   setUp(() {
+    authRepository = FakeRuleAuthRepository();
     repository = FakeRuleSourceRepository(<RuleSource>[
       builtinSource(
         id: 'builtin.bangumi.anime',
@@ -38,11 +43,18 @@ void main() {
     ]);
   });
 
-  tearDown(() => repository.close());
+  tearDown(() async {
+    await repository.close();
+    await authRepository.close();
+  });
 
   Future<void> pumpPage(WidgetTester tester) => tester.pumpWidget(
     ProviderScope(
-      overrides: [ruleSourceRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        ruleSourceRepositoryProvider.overrideWithValue(repository),
+        ruleAuthRepositoryProvider.overrideWithValue(authRepository),
+        ruleLoginWebViewSupportedProvider.overrideWithValue(false),
+      ],
       child: const MaterialApp(
         locale: Locale('zh'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -103,6 +115,40 @@ void main() {
     final sources = await repository.getAll();
     expect(sources.map((source) => source.id), isNot(contains('user.demo')));
     expect(find.text('我的规则'), findsNothing);
+  });
+
+  testWidgets('有登录配置的规则显示登录入口与已登录状态', (tester) async {
+    final source = importedSource(
+      id: 'user.login',
+      name: '登录规则',
+      login: const RuleLoginRule(url: '/login'),
+    );
+    await repository.save(source);
+    await authRepository.save(
+      RuleAuth(
+        ruleId: source.id,
+        cookies: const <String, String>{'session': 'abc'},
+        updatedAt: DateTime(2026),
+      ),
+    );
+
+    await pumpPage(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('已登录'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('重新登录'), findsOneWidget);
+    expect(find.text('退出登录'), findsWidgets);
+
+    await tester.tap(find.text('退出登录').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '退出登录'));
+    await tester.pumpAndSettle();
+
+    expect(authRepository.auths, isEmpty);
+    expect(find.text('已登录'), findsNothing);
   });
 
   testWidgets('取消删除时保留规则', (tester) async {
