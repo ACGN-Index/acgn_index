@@ -1,11 +1,14 @@
 import 'package:acgn_index/app/router/app_destinations.dart';
+import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/data/providers.dart';
+import 'package:acgn_index/domain/entities/content_source.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
 import 'package:acgn_index/domain/entities/novel_content.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/entities/viewer_launch.dart';
 import 'package:acgn_index/domain/entities/work_view.dart';
+import 'package:acgn_index/domain/repositories/content_source_repository.dart';
 import 'package:acgn_index/domain/repositories/work_repository.dart';
 import 'package:acgn_index/features/detail/work_detail_page.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
@@ -39,6 +42,11 @@ void main() {
     await _pump(tester, repository);
 
     expect(find.text('该源仅提供资料，没有正文。'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('第一章'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('第一章'));
     await tester.pumpAndSettle();
     expect(repository.loadChapterCount, 0);
@@ -70,12 +78,116 @@ void main() {
 
     expect(find.text('缺少作品参数，请从发现页重新进入。'), findsOneWidget);
   });
+
+  testWidgets('仅资料源默认展开内容来源，点击结果切换来源', (tester) async {
+    final repository = _FakeWorkRepository(
+      _work(capabilities: const <RuleCapability>{RuleCapability.detail, RuleCapability.toc}),
+      works: <String, WorkView>{_providerItem.ruleId: _work(item: _providerItem)},
+    );
+    final contentSources = _FakeContentSourceRepository(result: _result());
+    await _pump(tester, repository, contentSources: contentSources);
+
+    expect(find.text('内容来源'), findsOneWidget);
+    expect(find.text('1 个来源 · 1 个结果'), findsOneWidget);
+    expect(find.text('资源站'), findsWidgets);
+    expect(find.text('来源作品'), findsOneWidget);
+    expect(find.text('该源仅提供资料，没有正文。'), findsOneWidget);
+
+    await tester.tap(find.text('来源作品'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('内容来源'), findsOneWidget);
+    expect(find.text('该源仅提供资料，没有正文。'), findsNothing);
+
+    await tester.tap(find.text('第一章'));
+    await tester.pumpAndSettle();
+    expect(repository.loadChapterCount, 1);
+  });
+
+  testWidgets('有正文能力的详情页显示折叠的内容来源，展开后可见结果', (tester) async {
+    final repository = _FakeWorkRepository(
+      _work(),
+      works: <String, WorkView>{_providerItem.ruleId: _work(item: _providerItem)},
+    );
+    final contentSources = _FakeContentSourceRepository(result: _result());
+    await _pump(tester, repository, contentSources: contentSources);
+
+    expect(find.text('内容来源'), findsOneWidget);
+    expect(find.text('1 个来源 · 1 个结果'), findsOneWidget);
+    expect(find.text('来源作品'), findsNothing);
+
+    await tester.tap(find.text('内容来源'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('资源站'), findsWidgets);
+    expect(find.text('来源作品'), findsOneWidget);
+  });
+
+  testWidgets('内容来源检索失败时可重试', (tester) async {
+    final contentSources = _FakeContentSourceRepository(
+      error: const NetworkException('boom'),
+    );
+    await _pump(
+      tester,
+      _FakeWorkRepository(
+        _work(capabilities: const <RuleCapability>{RuleCapability.detail, RuleCapability.toc}),
+      ),
+      contentSources: contentSources,
+    );
+
+    expect(find.text('内容来源检索失败，请稍后重试。'), findsWidgets);
+    await tester.tap(find.text('重试').first);
+    await tester.pumpAndSettle();
+    expect(contentSources.searchCount, 2);
+  });
+
+  testWidgets('可以修改单个来源的检索词并重新检索', (tester) async {
+    final contentSources = _FakeContentSourceRepository(
+      result: const ContentSourceResult(
+        groups: <ContentSourceGroup>[
+          ContentSourceGroup(
+            ruleId: 'rule.provider',
+            ruleName: '资源站',
+            keyword: '作品A',
+          ),
+        ],
+      ),
+      refreshed: const ContentSourceGroup(
+        ruleId: 'rule.provider',
+        ruleName: '资源站',
+        keyword: '关键词B',
+        items: <DiscoverItem>[_providerItem],
+        status: ContentSourceStatus.ok,
+      ),
+    );
+    await _pump(
+      tester,
+      _FakeWorkRepository(
+        _work(capabilities: const <RuleCapability>{RuleCapability.detail, RuleCapability.toc}),
+      ),
+      contentSources: contentSources,
+    );
+
+    expect(find.text('没有结果'), findsOneWidget);
+    await tester.tap(find.text('修改检索词').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '关键词B');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(contentSources.refreshCount, 1);
+    expect(contentSources.lastKeyword, '关键词B');
+    expect(find.text('检索词：关键词B'), findsOneWidget);
+    expect(find.text('来源作品'), findsOneWidget);
+  });
 }
 
 Future<void> _pump(
   WidgetTester tester,
   _FakeWorkRepository repository, {
   DiscoverItem? item = _defaultItem,
+  ContentSourceRepository? contentSources,
 }) async {
   final router = GoRouter(
     initialLocation: AppRoutes.workDetail,
@@ -94,7 +206,12 @@ Future<void> _pump(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [workRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        workRepositoryProvider.overrideWithValue(repository),
+        contentSourceRepositoryProvider.overrideWithValue(
+          contentSources ?? _FakeContentSourceRepository(),
+        ),
+      ],
       child: MaterialApp.router(
         locale: const Locale('zh'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -117,15 +234,38 @@ const DiscoverItem _defaultItem = DiscoverItem(
   author: '作者A',
 );
 
+const DiscoverItem _providerItem = DiscoverItem(
+  ruleId: 'rule.provider',
+  ruleName: '资源站',
+  type: MediaType.comic,
+  origin: RuleSourceOrigin.imported,
+  adult: false,
+  id: 'p1',
+  title: '来源作品',
+);
+
+ContentSourceResult _result() => const ContentSourceResult(
+  groups: <ContentSourceGroup>[
+    ContentSourceGroup(
+      ruleId: 'rule.provider',
+      ruleName: '资源站',
+      keyword: '作品A',
+      items: <DiscoverItem>[_providerItem],
+      status: ContentSourceStatus.ok,
+    ),
+  ],
+);
+
 WorkView _work({
+  DiscoverItem item = _defaultItem,
   Set<RuleCapability> capabilities = const <RuleCapability>{
     RuleCapability.detail,
     RuleCapability.toc,
     RuleCapability.content,
   },
 }) => WorkView(
-  item: _defaultItem,
-  source: _source(capabilities),
+  item: item,
+  source: _source(capabilities, id: item.ruleId),
   detail: const WorkDetail(
     title: '作品A',
     fields: <String, Object?>{
@@ -148,11 +288,11 @@ WorkView _work({
   ),
 );
 
-RuleSource _source(Set<RuleCapability> capabilities) => RuleSource(
+RuleSource _source(Set<RuleCapability> capabilities, {String id = 'rule.test'}) => RuleSource(
   pack: RulePack(
     schemaVersion: kSupportedSchemaVersion,
-    meta: const RuleMeta(
-      id: 'rule.test',
+    meta: RuleMeta(
+      id: id,
       name: 'Test',
       type: MediaType.comic,
       baseUrl: 'https://example.invalid',
@@ -175,14 +315,15 @@ RuleSource _source(Set<RuleCapability> capabilities) => RuleSource(
 );
 
 class _FakeWorkRepository implements WorkRepository {
-  _FakeWorkRepository(this.work, {this.launch});
+  _FakeWorkRepository(this.work, {this.launch, this.works = const <String, WorkView>{}});
 
   final WorkView work;
+  final Map<String, WorkView> works;
   final ViewerLaunch? launch;
   var loadChapterCount = 0;
 
   @override
-  Future<WorkView> loadWork(DiscoverItem item) async => work;
+  Future<WorkView> loadWork(DiscoverItem item) async => works[item.ruleId] ?? work;
 
   @override
   Future<ViewerLaunch> loadChapter(WorkView work, TocEntry chapter) async {
@@ -196,5 +337,41 @@ class _FakeWorkRepository implements WorkRepository {
             ],
           ),
         );
+  }
+}
+
+class _FakeContentSourceRepository implements ContentSourceRepository {
+  _FakeContentSourceRepository({
+    this.result = ContentSourceResult.empty,
+    this.error,
+    this.refreshed,
+  });
+
+  final ContentSourceResult result;
+  final Object? error;
+  final ContentSourceGroup? refreshed;
+  var searchCount = 0;
+  var refreshCount = 0;
+  String? lastKeyword;
+
+  @override
+  Future<ContentSourceResult> search(ContentSourceQuery query) async {
+    searchCount++;
+    final failure = error;
+    if (failure != null) {
+      throw failure;
+    }
+    return result;
+  }
+
+  @override
+  Future<ContentSourceGroup?> refreshProvider(
+    ContentSourceQuery query, {
+    required String ruleId,
+    required String keyword,
+  }) async {
+    refreshCount++;
+    lastKeyword = keyword;
+    return refreshed;
   }
 }

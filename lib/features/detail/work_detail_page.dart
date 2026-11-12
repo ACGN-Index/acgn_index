@@ -8,6 +8,7 @@ import 'package:acgn_index/domain/entities/discover_feed.dart';
 import 'package:acgn_index/domain/entities/viewer_launch.dart';
 import 'package:acgn_index/domain/entities/work_view.dart';
 import 'package:acgn_index/domain/repositories/work_repository.dart';
+import 'package:acgn_index/features/detail/content_source_section.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:acgn_index/rule_engine/models/toc_entry.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
@@ -28,6 +29,7 @@ class WorkDetailPage extends ConsumerStatefulWidget {
 
 class _WorkDetailPageState extends ConsumerState<WorkDetailPage> {
   late final WorkRepository _repository;
+  late DiscoverItem? _item;
   Future<WorkView>? _work;
   String? _openingChapter;
 
@@ -35,16 +37,28 @@ class _WorkDetailPageState extends ConsumerState<WorkDetailPage> {
   void initState() {
     super.initState();
     _repository = ref.read(workRepositoryProvider);
-    final item = widget.item;
+    _item = widget.item;
+    final item = _item;
     _work = item == null ? null : _loadWork(item);
   }
 
   void _reload() {
-    final item = widget.item;
+    final item = _item;
     if (item == null) {
       return;
     }
     setState(() {
+      _work = _loadWork(item);
+    });
+  }
+
+  /// 「内容来源」选中的规则替换当前作品，仍停留在同一个详情页。
+  void _selectSource(DiscoverItem item) {
+    if (item.key == _item?.key) {
+      return;
+    }
+    setState(() {
+      _item = item;
       _work = _loadWork(item);
     });
   }
@@ -109,7 +123,7 @@ class _WorkDetailPageState extends ConsumerState<WorkDetailPage> {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.detailTitle)),
-      body: widget.item == null
+      body: _item == null
           ? EmptyStateView(
               icon: Icons.link_off,
               title: l10n.detailMissingItem,
@@ -197,6 +211,12 @@ class _WorkDetailPageState extends ConsumerState<WorkDetailPage> {
           const SizedBox(height: 8),
           SelectableText(htmlToPlainText(intro)),
         ],
+        const SizedBox(height: 20),
+        ContentSourceSection(
+          key: ValueKey<String>(work.item.key),
+          work: work,
+          onSelected: _selectSource,
+        ),
         const SizedBox(height: 24),
         Text(l10n.detailChapters, style: theme.textTheme.titleMedium),
         if (!work.canOpenChapter) ...<Widget>[

@@ -6,10 +6,12 @@ import 'package:acgn_index/data/network/authenticated_rule_http_client.dart';
 import 'package:acgn_index/data/network/dio_rule_http_client.dart';
 import 'package:acgn_index/data/repositories/drift_rule_auth_repository.dart';
 import 'package:acgn_index/data/repositories/drift_rule_source_repository.dart';
+import 'package:acgn_index/data/repositories/rule_content_source_repository.dart';
 import 'package:acgn_index/data/repositories/rule_discover_feed_repository.dart';
 import 'package:acgn_index/data/repositories/rule_work_repository.dart';
 import 'package:acgn_index/data/sandbox/flutter_js_runtime.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
+import 'package:acgn_index/domain/repositories/content_source_repository.dart';
 import 'package:acgn_index/domain/repositories/discover_feed_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_auth_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_source_repository.dart';
@@ -124,3 +126,13 @@ final Provider<WorkRepository> workRepositoryProvider = Provider<WorkRepository>
     ref.watch(ruleAuthRepositoryProvider),
   ),
 );
+
+/// 仅资料源详情页的跨源检索；与发现页聚合共用搜索流水线。
+final Provider<ContentSourceRepository> contentSourceRepositoryProvider =
+    Provider<ContentSourceRepository>(
+      (ref) => RuleContentSourceRepository(
+        ref.watch(ruleSourceRepositoryProvider),
+        ref.watch(ruleSearchPipelineProvider),
+        ref.watch(ruleAuthRepositoryProvider),
+      ),
+    );
