@@ -1,7 +1,9 @@
 {
   "dart.lineLength": 100,
   "editor.formatOnSave": true,
-  "editor.rulers": [100],
+  "editor.rulers": [
+    100
+  ],
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit"
   },
@@ -20,5 +22,6 @@
   "files.watcherExclude": {
     "**/build/**": true,
     "**/.dart_tool/**": true
-  }
+  },
+  "cmake.sourceDirectory": "D:/xm/acgn_index/windows"
 }
