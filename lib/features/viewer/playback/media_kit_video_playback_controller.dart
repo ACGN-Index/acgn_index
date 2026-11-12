@@ -21,6 +21,9 @@ class MediaKitVideoPlaybackController extends VideoPlaybackController {
       _player.stream.buffering.listen(
         (buffering) => _emit(_state.copyWith(buffering: buffering)),
       ),
+      _player.stream.buffer.listen(
+        (buffered) => _emit(_state.copyWith(buffered: buffered)),
+      ),
       _player.stream.playing.listen(_onPlayingChanged),
       _player.stream.completed.listen(_onCompletedChanged),
       _player.stream.error.listen(_onError),

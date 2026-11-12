@@ -1,13 +1,15 @@
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:acgn_index/app/router/app_destinations.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/core/widgets/empty_state_view.dart';
 import 'package:acgn_index/data/providers.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
+import 'package:acgn_index/domain/entities/rule_page_cursor.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/repositories/discover_feed_repository.dart';
 import 'package:acgn_index/features/discover/discover_filter.dart';
+import 'package:acgn_index/features/discover/discover_grid.dart';
 import 'package:acgn_index/features/discover/discover_work_card.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -24,28 +26,154 @@ class DiscoverPage extends ConsumerStatefulWidget {
 
 class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   late final DiscoverFeedRepository _repository;
-  late Future<DiscoverFeed> _feed;
+  final ScrollController _scrollController = ScrollController();
+
+  final Set<String> _keys = <String>{};
+  List<DiscoverItem>? _items;
+  List<DiscoverFailure> _failures = const <DiscoverFailure>[];
+  List<RulePageCursor> _cursors = const <RulePageCursor>[];
+  int _sourceCount = 0;
+  int _searchableSourceCount = 0;
+  Object? _error;
+  bool _loadingMore = false;
+  bool _loadMoreFailed = false;
   DiscoverFilter _filter = const DiscoverFilter();
+
+  /// 代际号：刷新会自增，用来丢弃刷新之前发出的分页响应。
+  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
     _repository = ref.read(discoverFeedRepositoryProvider);
-    _feed = _repository.load();
+    _scrollController.addListener(_onScroll);
+    unawaited(_reload());
   }
 
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  /// 重新加载第一页；已有内容时保留旧内容，避免刷新失败把整页清空。
   Future<void> _reload() async {
-    final future = _repository.load();
-    if (mounted) {
-      setState(() {
-        _feed = future;
-      });
-    }
+    final generation = ++_generation;
     try {
-      await future;
+      final feed = await _repository.load();
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      setState(() {
+        _items = feed.items;
+        _keys
+          ..clear()
+          ..addAll(feed.items.map((item) => item.key));
+        _failures = feed.failures;
+        _cursors = feed.cursors;
+        _sourceCount = feed.sourceCount;
+        _searchableSourceCount = feed.searchableSourceCount;
+        _error = null;
+        _loadingMore = false;
+        _loadMoreFailed = false;
+      });
+      _scheduleFillCheck();
     } on Object catch (error, stackTrace) {
       AppLogger.of('discover').warning('发现页加载失败', error, stackTrace);
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      if (_items == null) {
+        setState(() => _error = error);
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).discoverLoadFailed)),
+      );
     }
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.extentAfter > _loadMoreThreshold) {
+      return;
+    }
+    unawaited(_loadMore());
+  }
+
+  /// 内容不足一屏时滚动事件不会触发，这里在布局结束后主动补一页。
+  void _scheduleFillCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      if (_scrollController.position.extentAfter <= _loadMoreThreshold) {
+        unawaited(_loadMore());
+      }
+    });
+  }
+
+  Future<void> _loadMore({bool force = false}) async {
+    if (_loadingMore || _cursors.isEmpty) {
+      return;
+    }
+    // 失败后不自动重试同一游标，避免坏规则在触底时反复请求。
+    if (_loadMoreFailed && !force) {
+      return;
+    }
+    setState(() {
+      _loadingMore = true;
+      _loadMoreFailed = false;
+    });
+    final generation = _generation;
+    try {
+      final chunk = await _repository.loadMore(_cursors);
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      var added = 0;
+      final items = List<DiscoverItem>.of(_items ?? const <DiscoverItem>[]);
+      for (final item in chunk.items) {
+        if (_keys.add(item.key)) {
+          items.add(item);
+          added++;
+        }
+      }
+      setState(() {
+        _loadingMore = false;
+        _items = items;
+        _failures = _mergeFailures(_failures, chunk.failures);
+        // 全是重复条目说明该规则的分页已失去意义，直接停止翻页。
+        _cursors = added == 0 && chunk.items.isNotEmpty ? const <RulePageCursor>[] : chunk.cursors;
+      });
+      if (added > 0) {
+        _scheduleFillCheck();
+      }
+    } on Object catch (error, stackTrace) {
+      AppLogger.of('discover').warning('发现页加载更多失败', error, stackTrace);
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      setState(() {
+        _loadingMore = false;
+        _loadMoreFailed = true;
+      });
+    }
+  }
+
+  List<DiscoverFailure> _mergeFailures(
+    List<DiscoverFailure> current,
+    List<DiscoverFailure> next,
+  ) {
+    if (next.isEmpty) {
+      return current;
+    }
+    final byRule = <String, DiscoverFailure>{
+      for (final failure in current) failure.ruleId: failure,
+      for (final failure in next) failure.ruleId: failure,
+    };
+    return List<DiscoverFailure>.unmodifiable(byRule.values);
   }
 
   Future<void> _openFilter() async {
@@ -88,38 +216,39 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         ),
         actions: <Widget>[
           IconButton(
-            onPressed: _reload,
-            tooltip: l10n.discoverRefresh,
-            icon: const Icon(Icons.refresh),
+            onPressed: () => context.push(AppRoutes.search),
+            tooltip: l10n.discoverSearchHint,
+            icon: const Icon(Icons.search),
           ),
         ],
       ),
-      body: FutureBuilder<DiscoverFeed>(
-        future: _feed,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return EmptyStateView(
-              icon: Icons.cloud_off_outlined,
-              title: l10n.discoverErrorTitle,
-              body: l10n.discoverLoadFailed,
-              action: FilledButton.tonal(
-                onPressed: _reload,
-                child: Text(l10n.discoverRetry),
-              ),
-            );
-          }
-          return _buildFeed(context, snapshot.data ?? DiscoverFeed.empty);
-        },
-      ),
+      body: _buildBody(context),
     );
   }
 
-  Widget _buildFeed(BuildContext context, DiscoverFeed feed) {
+  Widget _buildBody(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    if (feed.sourceCount == 0) {
+    final items = _items;
+    if (items == null) {
+      if (_error != null) {
+        return EmptyStateView(
+          icon: Icons.cloud_off_outlined,
+          title: l10n.discoverErrorTitle,
+          body: l10n.discoverLoadFailed,
+          action: FilledButton.tonal(
+            onPressed: _reload,
+            child: Text(l10n.discoverRetry),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+    return _buildFeed(context, items);
+  }
+
+  Widget _buildFeed(BuildContext context, List<DiscoverItem> feedItems) {
+    final l10n = AppLocalizations.of(context);
+    if (_sourceCount == 0) {
       return EmptyStateView(
         icon: Icons.explore_outlined,
         title: l10n.discoverEmptyTitle,
@@ -130,7 +259,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         ),
       );
     }
-    if (feed.searchableSourceCount == 0) {
+    if (_searchableSourceCount == 0) {
       return EmptyStateView(
         icon: Icons.search_off_outlined,
         title: l10n.discoverNoSearchableTitle,
@@ -141,12 +270,12 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         ),
       );
     }
-    if (feed.items.isEmpty) {
-      if (feed.hasFailures) {
+    if (feedItems.isEmpty) {
+      if (_failures.isNotEmpty) {
         return EmptyStateView(
           icon: Icons.cloud_off_outlined,
           title: l10n.discoverErrorTitle,
-          body: l10n.discoverPartialFailure(feed.failures.length),
+          body: l10n.discoverPartialFailure(_failures.length),
           action: FilledButton.tonal(
             onPressed: _reload,
             child: Text(l10n.discoverRetry),
@@ -163,7 +292,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         ),
       );
     }
-    final items = feed.items.where(_filter.matches).toList(growable: false);
+    final items = feedItems.where(_filter.matches).toList(growable: false);
     if (items.isEmpty) {
       return EmptyStateView(
         icon: Icons.filter_alt_off_outlined,
@@ -178,33 +307,27 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     return RefreshIndicator(
       onRefresh: _reload,
       child: CustomScrollView(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: <Widget>[
-          if (feed.hasFailures)
+          if (_failures.isNotEmpty)
             SliverToBoxAdapter(
               child: _FailureBanner(
-                count: feed.failures.length,
+                count: _failures.length,
                 onRetry: _reload,
               ),
             ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             sliver: SliverLayoutBuilder(
               builder: (context, constraints) {
-                final columns = _gridColumnsFor(constraints.crossAxisExtent);
-                final itemWidth =
-                    (constraints.crossAxisExtent - _gridSpacing * (columns - 1)) / columns;
+                final metrics = DiscoverGridMetrics.forExtent(constraints.crossAxisExtent);
                 return SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    childAspectRatio: 0.62,
-                    crossAxisSpacing: _gridSpacing,
-                    mainAxisSpacing: _gridSpacing,
-                  ),
+                  gridDelegate: metrics.delegate,
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => DiscoverWorkCard(
                       item: items[index],
-                      dense: itemWidth < _denseCardWidth,
+                      dense: metrics.dense,
                       onTap: () => context.push(AppRoutes.workDetail, extra: items[index]),
                     ),
                     childCount: items.length,
@@ -213,7 +336,56 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               },
             ),
           ),
+          SliverToBoxAdapter(child: _buildFooter(l10n)),
         ],
+      ),
+    );
+  }
+
+  /// 底部翻页状态：加载中 / 加载失败可重试 / 已经到底。
+  Widget _buildFooter(AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    if (_loadMoreFailed) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+        child: Column(
+          children: <Widget>[
+            Text(
+              l10n.discoverLoadMoreFailed,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+            TextButton(onPressed: () => _loadMore(force: true), child: Text(l10n.discoverRetry)),
+          ],
+        ),
+      );
+    }
+    if (_loadingMore) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(12, 0, 12, 24),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    // 还有下一页时不在底部常驻转圈：滚动到阈值会自动触发，避免持续动画。
+    if (_cursors.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      child: Center(
+        child: Text(
+          l10n.discoverNoMore,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }
@@ -225,22 +397,8 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       left.length == right.length && left.containsAll(right);
 }
 
-const double _gridSpacing = 8;
-
-/// 卡片窄于该宽度时收起内边距与字号，保证窄屏三列也能读。
-const double _denseCardWidth = 136;
-
-/// 网格每列的目标宽度，决定不同窗口宽度下的列数。
-const double _gridTargetCardWidth = 170;
-
-const int _gridMinColumns = 3;
-const int _gridMaxColumns = 10;
-
-/// 按可用宽度计算作品网格列数：窄屏（手机）至少 3 列，宽屏随宽度增长。
-int _gridColumnsFor(double crossAxisExtent) {
-  final columns = (crossAxisExtent / _gridTargetCardWidth).round();
-  return math.max(_gridMinColumns, math.min(_gridMaxColumns, columns));
-}
+/// 距离列表底部多少像素时开始预加载下一页。
+const double _loadMoreThreshold = 600;
 
 class _FailureBanner extends StatelessWidget {
   const _FailureBanner({required this.count, required this.onRetry});

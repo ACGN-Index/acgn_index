@@ -1,5 +1,6 @@
 import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/data/repositories/rule_auth_headers.dart';
+import 'package:acgn_index/data/repositories/rule_work_chapter_source.dart';
 import 'package:acgn_index/data/repositories/work_viewer_mapper.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
 import 'package:acgn_index/domain/entities/viewer_launch.dart';
@@ -98,11 +99,13 @@ class RuleWorkRepository implements WorkRepository {
       url: work.detail.url ?? work.item.url?.toString(),
     );
     final auth = await _auth?.find(pack.id);
+    final chapterSource = RuleWorkChapterSource(repository: this, work: work);
     return mapRuleContent(
       content,
       workTitle: work.title,
       chapter: chapter,
       authHeaders: auth?.toRequestHeaders() ?? const <String, String>{},
+      chapterSource: chapterSource,
     );
   }
 }

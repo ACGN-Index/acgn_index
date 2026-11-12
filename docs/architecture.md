@@ -41,7 +41,7 @@
 | `lib/data/builtin` | 内置规则集的校验与播种（`BuiltinRuleSeeder`） |
 | `lib/data/network` | 规则 HTTP 客户端（Dio 实现）、登录凭据注入、WebView Cookie 读写 |
 | `lib/data/sandbox` | `JsRuntime` 的 QuickJS 实现（`flutter_js`） |
-| `lib/data/repositories` | 仓储实现：规则源、发现聚合、详情/章节编排 |
+| `lib/data/repositories` | 仓储实现：规则源、发现聚合、跨规则搜索、详情/章节编排 |
 | `lib/data/providers.dart` | 数据层的 Riverpod 组合根 |
 | `lib/domain/entities` | 领域实体（不可变），含详情页的 `WorkView` / `ViewerLaunch` |
 | `lib/domain/repositories` | 仓储抽象接口 |
@@ -49,7 +49,8 @@
 | `lib/rule_engine/pipeline` | 规则校验、模板渲染、字段求值、HTTP 抓取与四类能力流水线 |
 | `lib/rule_engine/sandbox` | JS 运行时抽象与安全边界 |
 | `lib/features/<feature>` | 页面与页面级 provider（feature 目录下直接放页面） |
-| `lib/features/discover` | 发现页：聚合启用规则的搜索结果、类型/来源筛选、作品网格 |
+| `lib/features/discover` | 发现页：聚合启用规则的搜索结果、类型/来源筛选、作品网格与下滑分页 |
+| `lib/features/search` | 跨规则搜索页：关键词并发检索、按规则分组结果、下滑分页 |
 | `lib/features/detail` | 作品详情：详情字段、分组目录、章节按需抓取并打开查看器 |
 | `lib/features/viewer` | 视频 / 漫画 / 小说查看器：播放后端抽象、弹幕引擎、阅读设置 |
 | `lib/features/sources` | 规则源列表、规则编辑器（可视化表单 / JSON 双模式、校验、保存）与规则登录页（WebView / 手动请求头） |
@@ -94,7 +95,16 @@ ViewerLaunch → 漫画 / 小说 / 视频查看器（文件模式复制下载地
 2. 每条规则以空关键词请求第一页（`query` 模式请求搜索接口；`index` 模式拉索引，空关键词时跳过 `filter`）；
 3. 单条规则失败只记录 `AppLogger` 并计入 `DiscoverFeed.failures`，不影响其它规则；
 4. 类型 / 来源筛选在已加载结果上本地完成，不重复请求；
-5. 卡片点击进入 `/work` 详情页，搜索结果的全部字段通过 `DiscoverItem.extra` 透传，供 `toc.fanOutFrom: search.volumes` 使用。
+5. 卡片点击进入 `/work` 详情页，搜索结果的全部字段通过 `DiscoverItem.extra` 透传，供 `toc.fanOutFrom: search.volumes` 使用；
+6. 分页：`SearchPage.hasMore` 的规则以 `RulePageCursor(ruleId, page)` 记入 `DiscoverFeed.cursors`，页面滚动到距底部 600px 内或首屏不满一屏时调用 `loadMore(cursors)` 追加内容。空页即使声明了 `hasMore` 也视为到底，追加页失败则记录失败并丢弃该规则游标（不自动重试坏规则），页面按 `DiscoverItem.key` 去重。
+
+### 跨规则搜索
+
+发现页右上角的搜索入口打开 `/search`。`WorkSearchRepository` 复用同一条搜索流水线：关键词去空白后并发检索所有启用且具备 `search` 能力的规则，结果按规则分组（`WorkSearchGroup` 的 `ok` / `noResult` / `failed` 互不影响），封面请求头同样合并登录凭据。
+
+1. `RuleWorkSearchRepository.search` 返回每组第一页与 `cursors`；`loadMore` 只请求游标里列出的规则与页码，页面把新条目追加到对应分组。
+2. 页面输入防抖 400ms，并用递增请求号丢弃过期响应；滚动到底部的加载策略与发现页一致。
+3. 卡片点击同样进入 `/work` 详情页。
 
 规则求值流水线位于 `lib/rule_engine/pipeline`：
 

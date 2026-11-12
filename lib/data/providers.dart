@@ -4,18 +4,22 @@ import 'package:acgn_index/data/builtin/builtin_rule_seeder.dart';
 import 'package:acgn_index/data/db/app_database.dart';
 import 'package:acgn_index/data/network/authenticated_rule_http_client.dart';
 import 'package:acgn_index/data/network/dio_rule_http_client.dart';
+import 'package:acgn_index/data/repositories/dandanplay_danmaku_repository.dart';
 import 'package:acgn_index/data/repositories/drift_rule_auth_repository.dart';
 import 'package:acgn_index/data/repositories/drift_rule_source_repository.dart';
 import 'package:acgn_index/data/repositories/rule_content_source_repository.dart';
 import 'package:acgn_index/data/repositories/rule_discover_feed_repository.dart';
 import 'package:acgn_index/data/repositories/rule_work_repository.dart';
+import 'package:acgn_index/data/repositories/rule_work_search_repository.dart';
 import 'package:acgn_index/data/sandbox/flutter_js_runtime.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/repositories/content_source_repository.dart';
+import 'package:acgn_index/domain/repositories/danmaku_library_repository.dart';
 import 'package:acgn_index/domain/repositories/discover_feed_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_auth_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_source_repository.dart';
 import 'package:acgn_index/domain/repositories/work_repository.dart';
+import 'package:acgn_index/domain/repositories/work_search_repository.dart';
 import 'package:acgn_index/rule_engine/network/rule_http_client.dart';
 import 'package:acgn_index/rule_engine/pipeline/content_pipeline.dart';
 import 'package:acgn_index/rule_engine/pipeline/detail_pipeline.dart';
@@ -67,6 +71,12 @@ final Provider<RuleHttpClient> ruleHttpClientProvider = Provider<RuleHttpClient>
   ref.onDispose(client.close);
   return client;
 });
+
+/// 外部弹幕库；凭证由用户在播放器面板里配置，不内置。
+final Provider<DanmakuLibraryRepository> danmakuLibraryRepositoryProvider =
+    Provider<DanmakuLibraryRepository>(
+      (ref) => DandanplayDanmakuRepository(httpClient: ref.watch(ruleHttpClientProvider)),
+    );
 
 final Provider<JsRuntime> jsRuntimeProvider = Provider<JsRuntime>((ref) {
   final runtime = FlutterJsRuntime();
@@ -123,6 +133,15 @@ final Provider<WorkRepository> workRepositoryProvider = Provider<WorkRepository>
     ref.watch(ruleDetailPipelineProvider),
     ref.watch(ruleTocPipelineProvider),
     ref.watch(ruleContentPipelineProvider),
+    ref.watch(ruleAuthRepositoryProvider),
+  ),
+);
+
+/// 跨规则搜索：并发请求所有启用规则的 `search` 接口，结果按规则分组。
+final Provider<WorkSearchRepository> workSearchRepositoryProvider = Provider<WorkSearchRepository>(
+  (ref) => RuleWorkSearchRepository(
+    ref.watch(ruleSourceRepositoryProvider),
+    ref.watch(ruleSearchPipelineProvider),
     ref.watch(ruleAuthRepositoryProvider),
   ),
 );

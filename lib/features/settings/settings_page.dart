@@ -1,4 +1,5 @@
 import 'package:acgn_index/core/constants/app_constants.dart';
+import 'package:acgn_index/features/viewer/player_settings_sheet.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
@@ -17,6 +18,17 @@ class SettingsPage extends StatelessWidget {
             leading: const Icon(Icons.brightness_auto_outlined),
             title: Text(l10n.settingsThemeMode),
             subtitle: Text(l10n.settingsThemeSystem),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.play_circle_outline),
+            title: Text(l10n.playerSettings),
+            subtitle: Text(l10n.playerSettingHover),
+            onTap: () => showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              builder: (context) => const PlayerSettingsSheet(),
+            ),
           ),
           const Divider(height: 1),
           ListTile(

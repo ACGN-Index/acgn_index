@@ -30,7 +30,28 @@
   "discoverErrorTitle": "内容加载失败",
   "discoverLoadFailed": "内容加载失败，请稍后重试。",
   "discoverRetry": "重试",
-  "discoverRefresh": "刷新",
+  "discoverNoMore": "没有更多内容了",
+  "discoverLoadMoreFailed": "加载更多失败",
+  "searchTitle": "搜索",
+  "searchEmptyKeywordTitle": "跨规则搜索作品",
+  "searchEmptyKeywordBody": "输入作品名，会同时检索所有已启用的规则。",
+  "searchNoProviderTitle": "没有可搜索的规则",
+  "searchNoProviderBody": "到「规则」页启用带搜索能力的规则，或导入新的规则包。",
+  "searchNoResultTitle": "没有找到作品",
+  "searchNoResultBody": "换个关键词试试，或启用更多规则。",
+  "searchErrorTitle": "搜索失败",
+  "searchErrorBody": "搜索请求失败，请稍后重试。",
+  "searchClear": "清空",
+  "searchGroupFailed": "搜索失败",
+  "searchGroupNoResult": "无结果",
+  "searchGroupResultCount": "{count} 个结果",
+  "@searchGroupResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "discoverPartialFailure": "{count} 个规则加载失败",
   "@discoverPartialFailure": {
     "placeholders": {
@@ -435,6 +456,79 @@
   "viewerDanmakuBottom": "底部弹幕",
   "viewerDanmakuInputHint": "发个弹幕吧",
   "viewerDanmakuSend": "发送",
+  "viewerDanmakuLibrary": "弹幕库索引",
+  "viewerDanmakuLibraryIdle": "未匹配弹幕库",
+  "viewerDanmakuLibraryMatched": "已匹配 {anime} · {episode}",
+  "@viewerDanmakuLibraryMatched": {
+    "placeholders": {
+      "anime": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      }
+    }
+  },
+  "viewerDanmakuLibraryMatchedCount": "已匹配 {anime} · {episode}（{count} 条）",
+  "@viewerDanmakuLibraryMatchedCount": {
+    "placeholders": {
+      "anime": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerDanmakuLibraryFailed": "弹幕库匹配失败",
+  "viewerDanmakuLibraryNotConfigured": "弹弹play 需要 AppId / AppSecret。请在下方填写自己的凭证，或把服务地址改成自建代理。",
+  "viewerDanmakuLibrarySearchHint": "搜索作品名",
+  "viewerDanmakuLibrarySearch": "搜索",
+  "viewerDanmakuLibraryEmpty": "没有匹配到弹幕库作品",
+  "viewerDanmakuLibraryRequestFailed": "弹幕库请求失败，请检查网络或凭证。",
+  "viewerDanmakuLibraryConfig": "弹幕库配置",
+  "viewerDanmakuLibraryBaseUrl": "服务地址",
+  "viewerDanmakuLibraryAppId": "AppId",
+  "viewerDanmakuLibraryAppSecret": "AppSecret",
+  "viewerDanmakuLibrarySave": "保存",
+  "viewerDanmakuLibraryEpisodeCount": "共 {count} 集",
+  "@viewerDanmakuLibraryEpisodeCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerDanmakuLibraryLoading": "正在拉取弹幕…",
+  "viewerDanmakuLibraryApplied": "已应用 {count} 条弹幕",
+  "@viewerDanmakuLibraryApplied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerPlaybackLine": "播放线路",
+  "viewerEpisodeCount": "全部剧集 · {count} 集",
+  "@viewerEpisodeCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerCurrentEpisode": "当前选集",
+  "viewerChapterLoading": "正在加载…",
+  "viewerChapterLoadFailed": "章节加载失败，请稍后重试。",
+  "viewerWindowFullscreen": "窗口全屏",
+  "viewerFullscreenHint": "长按进入窗口全屏",
+  "viewerDragSeekHint": "松开跳转",
+  "playerSettings": "播放器设置",
+  "playerSettingHover": "鼠标移动时显示控制栏",
+  "playerSettingHoverHint": "仅响应鼠标移动；触屏仍点击画面显示控制栏。",
   "viewerEpisodes": "选集",
   "viewerCatalog": "目录",
   "viewerPreviousChapter": "上一章",

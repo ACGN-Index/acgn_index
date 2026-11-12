@@ -2,6 +2,7 @@ import 'package:acgn_index/data/repositories/rule_auth_headers.dart';
 import 'package:acgn_index/domain/entities/comic_content.dart';
 import 'package:acgn_index/domain/entities/novel_content.dart';
 import 'package:acgn_index/domain/entities/video_content.dart';
+import 'package:acgn_index/domain/entities/viewer_chapter_source.dart';
 import 'package:acgn_index/domain/entities/viewer_launch.dart';
 import 'package:acgn_index/domain/entities/viewer_media.dart';
 import 'package:acgn_index/rule_engine/models/rule_content.dart';
@@ -11,15 +12,19 @@ import 'package:acgn_index/rule_engine/models/toc_entry.dart';
 ///
 /// 漫画 / 小说一次只携带当前章节；视频把每条线路映射为一集。
 /// [authHeaders] 是该规则的本地登录凭据，会合并进图片 / 视频 / 文件的请求头。
+/// [chapterSource] 提供整部作品的目录，查看器据此切换章节。
 ViewerLaunch mapRuleContent(
   RuleContent content, {
   required String workTitle,
   required TocEntry chapter,
   Map<String, String> authHeaders = const <String, String>{},
+  ViewerChapterSource? chapterSource,
 }) => switch (content) {
   final ImagesContent imagesContent => ComicViewerLaunch(
     ComicViewerContent(
       title: workTitle,
+      initialChapterKey: chapter.key,
+      chapterSource: chapterSource,
       chapters: <ComicChapter>[
         ComicChapter(
           id: chapter.key,
@@ -39,6 +44,8 @@ ViewerLaunch mapRuleContent(
   final TextContent textContent => NovelViewerLaunch(
     NovelViewerContent(
       title: workTitle,
+      initialChapterKey: chapter.key,
+      chapterSource: chapterSource,
       chapters: <NovelChapter>[
         NovelChapter(
           id: chapter.key,
@@ -52,6 +59,9 @@ ViewerLaunch mapRuleContent(
     VideoViewerContent(
       title: workTitle,
       subtitle: chapter.groupTitle,
+      chapterTitle: chapter.title,
+      initialChapterKey: chapter.key,
+      chapterSource: chapterSource,
       episodes: <VideoEpisode>[
         for (var index = 0; index < videoContent.sources.length; index++)
           VideoEpisode(

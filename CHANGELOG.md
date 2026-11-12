@@ -34,6 +34,8 @@
 - 规则登录：`login` 声明（`webview` / `headers`）、WebView 登录页抓取 Cookie、手动 Cookie / 请求头、登录状态展示与退出登录；本地凭据自动注入搜索 / 详情 / 目录 / 正文以及封面 / 图片 / 视频 / 文件请求头，凭据不写入规则包。
 - 新增依赖：`flutter_inappwebview`（beta，覆盖 Android / Windows / Linux 等平台的 WebView 登录）。
 - Drift `SourceAuthRecords` 本地登录凭据表，数据库 schema 升到 3；删除规则时一并清理凭据。
+- 发现页下滑分页：`DiscoverFeedRepository.loadMore` 按 `RulePageCursor`（规则 + 页码）继续拉取，滚动到距底部 600px 内自动追加下一页，底部展示加载中 / 加载失败重试 / 没有更多内容。
+- 跨规则搜索页 `/search`：发现页右上角搜索入口打开，关键词防抖 400ms 并发检索所有启用规则的 `search` 接口，结果按规则分组展示并支持下滑分页，组内作品可进入详情页。
 
 ### Changed
 
@@ -45,5 +47,6 @@
 - Drift `SourceRecords` 增加 `type` / `origin` / `readOnly` / `notice` / `priority`，数据库 schema 升到 2 并带迁移。
 - Windows 构建为 `flutter_inappwebview_windows` 增加 MSVC coroutine 兼容宏，兼容新版 Visual Studio。
 - 发现页作品网格改为按可用宽度自适应列数：窄屏（手机）至少 3 列，卡片变窄时间距、内边距与字号同步收紧，宽屏列数随宽度增长。
+- 发现页右上角的刷新按钮改为搜索入口（下拉刷新保持不变）；作品网格的列数计算抽到 `DiscoverGridMetrics`，与搜索页共用。
 
 [Unreleased]: https://github.com/ACGN-Index/acgn_index/commits/main

@@ -1,6 +1,7 @@
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/data/providers.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
+import 'package:acgn_index/domain/entities/rule_page_cursor.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/features/discover/discover_page.dart';
 import 'package:acgn_index/features/discover/discover_work_card.dart';
@@ -19,9 +20,10 @@ void main() {
 
   Future<FakeDiscoverFeedRepository> pumpPage(
     WidgetTester tester,
-    DiscoverFeed feed,
-  ) async {
-    final feedRepository = FakeDiscoverFeedRepository(feed);
+    DiscoverFeed feed, {
+    DiscoverFeedChunk chunk = DiscoverFeedChunk.empty,
+  }) async {
+    final feedRepository = FakeDiscoverFeedRepository(feed)..chunk = chunk;
     final sourceRepository = FakeRuleSourceRepository(<RuleSource>[]);
     addTearDown(sourceRepository.close);
     await tester.pumpWidget(
@@ -229,17 +231,123 @@ void main() {
     expect(find.text('1 个规则加载失败'), findsOneWidget);
   });
 
-  testWidgets('刷新按钮重新加载数据', (tester) async {
-    final repository = await pumpPage(
+  testWidgets('右上角是搜索入口，不再有刷新按钮', (tester) async {
+    await pumpPage(
       tester,
       discoverFeed(
         items: <DiscoverItem>[discoverItem(id: 'a', title: '作品 A')],
       ),
     );
 
-    await tester.tap(find.byIcon(Icons.refresh));
+    expect(find.byIcon(Icons.search), findsOneWidget);
+    expect(find.byIcon(Icons.refresh), findsNothing);
+  });
+
+  testWidgets('下拉刷新重新加载第一页', (tester) async {
+    final repository = await pumpPage(
+      tester,
+      discoverFeed(
+        items: <DiscoverItem>[
+          for (var index = 0; index < 30; index++)
+            discoverItem(id: 'work.$index', title: '作品 $index'),
+        ],
+      ),
+    );
+    expect(repository.loadCount, 1);
+
+    await tester.fling(find.byType(CustomScrollView), const Offset(0, 400), 1000);
     await tester.pumpAndSettle();
 
     expect(repository.loadCount, 2);
+  });
+
+  testWidgets('内容不足一屏时自动加载下一页', (tester) async {
+    final repository = await pumpPage(
+      tester,
+      discoverFeed(
+        items: <DiscoverItem>[
+          for (var index = 0; index < 4; index++)
+            discoverItem(id: 'work.$index', title: '作品 $index'),
+        ],
+        cursors: const <RulePageCursor>[
+          RulePageCursor(ruleId: 'rule.work.0', page: 2),
+        ],
+      ),
+      chunk: DiscoverFeedChunk(
+        items: <DiscoverItem>[discoverItem(id: 'more', title: '更多作品')],
+        failures: const <DiscoverFailure>[],
+        cursors: const <RulePageCursor>[],
+      ),
+    );
+
+    expect(repository.loadMoreCount, 1);
+    expect(find.text('更多作品'), findsOneWidget);
+    expect(find.text('没有更多内容了'), findsOneWidget);
+  });
+
+  testWidgets('滚动到底部加载下一页', (tester) async {
+    final repository = await pumpPage(
+      tester,
+      discoverFeed(
+        items: <DiscoverItem>[
+          for (var index = 0; index < 30; index++)
+            discoverItem(id: 'work.$index', title: '作品 $index'),
+        ],
+        cursors: const <RulePageCursor>[
+          RulePageCursor(ruleId: 'rule.work.0', page: 2),
+        ],
+      ),
+    );
+    expect(repository.loadMoreCount, 0);
+    expect(find.text('没有更多内容了'), findsNothing);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    expect(repository.loadMoreCount, 1);
+    expect(repository.lastCursors, <RulePageCursor>[
+      const RulePageCursor(ruleId: 'rule.work.0', page: 2),
+    ]);
+    await tester.scrollUntilVisible(
+      find.text('没有更多内容了'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('没有更多内容了'), findsOneWidget);
+  });
+
+  testWidgets('加载更多失败后可以手动重试', (tester) async {
+    final repository = await pumpPage(
+      tester,
+      discoverFeed(
+        items: <DiscoverItem>[
+          for (var index = 0; index < 30; index++)
+            discoverItem(id: 'work.$index', title: '作品 $index'),
+        ],
+        cursors: const <RulePageCursor>[
+          RulePageCursor(ruleId: 'rule.work.0', page: 2),
+        ],
+      ),
+    );
+    repository.loadMoreError = StateError('boom');
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    expect(repository.loadMoreCount, 1);
+    await tester.scrollUntilVisible(
+      find.widgetWithText(TextButton, '重试'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('加载更多失败'), findsOneWidget);
+
+    repository.loadMoreError = null;
+    await tester.ensureVisible(find.widgetWithText(TextButton, '重试'));
+    await tester.tap(find.widgetWithText(TextButton, '重试'));
+    await tester.pumpAndSettle();
+
+    expect(repository.loadMoreCount, 2);
+    expect(find.text('没有更多内容了'), findsOneWidget);
   });
 }

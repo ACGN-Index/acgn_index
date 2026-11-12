@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../features/discover/discover_test_helpers.dart';
+import '../features/search/search_test_helpers.dart';
 import '../features/sources/sources_test_helpers.dart';
 
 void main() {
@@ -19,6 +20,9 @@ void main() {
             FakeDiscoverFeedRepository(),
           ),
           ruleSourceRepositoryProvider.overrideWithValue(sourceRepository),
+          workSearchRepositoryProvider.overrideWithValue(
+            FakeWorkSearchRepository(),
+          ),
         ],
         child: const AcgnIndexApp(),
       ),
@@ -49,5 +53,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('GPL-3.0'), findsOneWidget);
+  });
+
+  testWidgets('发现页搜索入口打开跨规则搜索页', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    expect(find.text('跨规则搜索作品'), findsOneWidget);
   });
 }

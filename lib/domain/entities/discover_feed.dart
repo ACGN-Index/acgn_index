@@ -1,4 +1,5 @@
 import 'package:acgn_index/core/models/media_type.dart';
+import 'package:acgn_index/domain/entities/rule_page_cursor.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 
 /// 发现页聚合出的单个作品。
@@ -63,6 +64,7 @@ class DiscoverFeed {
     required this.failures,
     required this.sourceCount,
     required this.searchableSourceCount,
+    this.cursors = const <RulePageCursor>[],
   });
 
   static const DiscoverFeed empty = DiscoverFeed(
@@ -81,5 +83,34 @@ class DiscoverFeed {
   /// 其中有 `search` 能力的规则源数量。
   final int searchableSourceCount;
 
+  /// 仍有下一页的规则及其下一页页码；为空表示已经到底。
+  final List<RulePageCursor> cursors;
+
   bool get hasFailures => failures.isNotEmpty;
+
+  bool get hasMore => cursors.isNotEmpty;
+}
+
+/// 分页追加的一批结果：新增条目、新增失败与下一轮游标。
+///
+/// 与 [DiscoverFeed] 分开是因为追加页只包含「这一页新增的内容」，
+/// 规则源数量等信息不会重复计算。
+class DiscoverFeedChunk {
+  const DiscoverFeedChunk({
+    required this.items,
+    required this.failures,
+    required this.cursors,
+  });
+
+  static const DiscoverFeedChunk empty = DiscoverFeedChunk(
+    items: <DiscoverItem>[],
+    failures: <DiscoverFailure>[],
+    cursors: <RulePageCursor>[],
+  );
+
+  final List<DiscoverItem> items;
+  final List<DiscoverFailure> failures;
+
+  /// 下一轮仍有下一页的规则游标。
+  final List<RulePageCursor> cursors;
 }

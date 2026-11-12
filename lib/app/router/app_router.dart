@@ -5,6 +5,7 @@ import 'package:acgn_index/domain/entities/novel_content.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/entities/video_content.dart';
 import 'package:acgn_index/features/detail/work_detail_page.dart';
+import 'package:acgn_index/features/search/search_page.dart';
 import 'package:acgn_index/features/shell/app_shell.dart';
 import 'package:acgn_index/features/sources/rule_editor_page.dart';
 import 'package:acgn_index/features/sources/rule_login_page.dart';
@@ -56,6 +57,10 @@ GoRouter createAppRouter() => GoRouter(
     GoRoute(
       path: AppRoutes.workDetail,
       builder: (context, state) => WorkDetailPage(item: _extraAs<DiscoverItem>(state)),
+    ),
+    GoRoute(
+      path: AppRoutes.search,
+      builder: (context, state) => const SearchPage(),
     ),
     GoRoute(
       path: AppRoutes.videoViewer,

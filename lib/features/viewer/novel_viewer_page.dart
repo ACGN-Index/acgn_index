@@ -1,6 +1,10 @@
 import 'dart:async';
 
+import 'package:acgn_index/core/errors/app_exception.dart';
+import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/domain/entities/novel_content.dart';
+import 'package:acgn_index/domain/entities/viewer_chapter_source.dart';
+import 'package:acgn_index/domain/entities/viewer_launch.dart';
 import 'package:acgn_index/features/viewer/novel/novel_reader_settings.dart';
 import 'package:acgn_index/features/viewer/novel/novel_settings_sheet.dart';
 import 'package:acgn_index/features/viewer/widgets/viewer_message_page.dart';
@@ -8,6 +12,7 @@ import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 小说查看器：分段正文 + 章节切换 + 可持久化的阅读设置与进度。
@@ -21,22 +26,23 @@ class NovelViewerPage extends ConsumerStatefulWidget {
 }
 
 class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
+  static final Logger _logger = AppLogger.of('viewer.novel');
   static const String _progressPrefix = 'novel_progress';
   static const Duration _saveDelay = Duration(milliseconds: 600);
 
   final ScrollController _scrollController = ScrollController();
   Timer? _saveTimer;
-  int _chapterIndex = 0;
   bool _chromeVisible = true;
+  bool _loadingChapter = false;
+  List<ViewerChapterRef> _chapterRefs = const <ViewerChapterRef>[];
+  NovelChapter? _chapter;
+  String? _chapterKey;
 
   NovelViewerContent? get _content => widget.content;
 
-  NovelChapter? get _chapter {
-    final content = _content;
-    if (content == null || content.chapters.isEmpty) {
-      return null;
-    }
-    return content.chapters[_chapterIndex];
+  int get _currentRefIndex {
+    final index = _chapterRefs.indexWhere((ref) => ref.key == _chapterKey);
+    return index < 0 ? 0 : index;
   }
 
   @override
@@ -46,7 +52,11 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
     if (content == null || content.chapters.isEmpty) {
       return;
     }
-    _chapterIndex = content.safeInitialChapterIndex;
+    _chapterRefs = _buildRefs(content);
+    _chapter = content.chapters[content.safeInitialChapterIndex];
+    _chapterKey =
+        content.initialChapterKey ??
+        (_chapterRefs.isEmpty ? null : _chapterRefs[content.safeInitialChapterIndex].key);
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreProgress());
   }
@@ -57,6 +67,16 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
     unawaited(_saveProgress());
     _scrollController.dispose();
     super.dispose();
+  }
+
+  List<ViewerChapterRef> _buildRefs(NovelViewerContent content) {
+    final source = content.chapterSource;
+    if (source != null && source.chapters.isNotEmpty) {
+      return source.chapters;
+    }
+    return content.chapters
+        .map((chapter) => ViewerChapterRef(key: chapter.id, title: chapter.title))
+        .toList(growable: false);
   }
 
   @override
@@ -128,8 +148,15 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
               ),
             ),
           ),
+          if (_loadingChapter)
+            Positioned.fill(
+              child: ColoredBox(
+                color: background.withValues(alpha: 0.6),
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+            ),
           if (_chromeVisible) _buildTopBar(l10n, content, chapter, background, foreground),
-          if (_chromeVisible) _buildBottomBar(l10n, content, background, foreground),
+          if (_chromeVisible) _buildBottomBar(l10n, background, foreground),
         ],
       ),
     );
@@ -187,14 +214,9 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
     );
   }
 
-  Widget _buildBottomBar(
-    AppLocalizations l10n,
-    NovelViewerContent content,
-    Color background,
-    Color foreground,
-  ) {
-    final hasPrevious = _chapterIndex > 0;
-    final hasNext = _chapterIndex < content.chapters.length - 1;
+  Widget _buildBottomBar(AppLocalizations l10n, Color background, Color foreground) {
+    final hasPrevious = _currentRefIndex > 0;
+    final hasNext = _currentRefIndex < _chapterRefs.length - 1;
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
@@ -203,11 +225,11 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
         child: Row(
           children: <Widget>[
             TextButton(
-              onPressed: hasPrevious ? () => _switchChapter(_chapterIndex - 1) : null,
+              onPressed: hasPrevious ? () => _switchChapter(-1) : null,
               child: Text(l10n.viewerPreviousChapter),
             ),
             TextButton(
-              onPressed: hasNext ? () => _switchChapter(_chapterIndex + 1) : null,
+              onPressed: hasNext ? () => _switchChapter(1) : null,
               child: Text(l10n.viewerNextChapter),
             ),
             const Spacer(),
@@ -264,17 +286,64 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
     });
   }
 
-  Future<void> _switchChapter(int index) async {
+  void _switchChapter(int delta) {
+    final index = _currentRefIndex + delta;
+    if (index < 0 || index >= _chapterRefs.length) {
+      return;
+    }
+    unawaited(_selectChapter(_chapterRefs[index]));
+  }
+
+  Future<void> _selectChapter(ViewerChapterRef ref) async {
+    if (ref.key == _chapterKey) {
+      return;
+    }
     final content = _content;
-    if (content == null || index < 0 || index >= content.chapters.length) {
+    if (content == null) {
       return;
     }
     await _saveProgress();
     if (!mounted) {
       return;
     }
+    final source = content.chapterSource;
+    if (source == null) {
+      final index = _chapterRefs.indexWhere((candidate) => candidate.key == ref.key);
+      if (index < 0 || index >= content.chapters.length) {
+        return;
+      }
+      _applyChapter(content.chapters[index], ref.key);
+      return;
+    }
+    setState(() => _loadingChapter = true);
+    try {
+      final launch = await source.load(ref);
+      if (!mounted) {
+        return;
+      }
+      if (launch is! NovelViewerLaunch || launch.content.chapters.isEmpty) {
+        throw const UnsupportedCapabilityException('该章节没有正文');
+      }
+      _applyChapter(launch.content.chapters.first, ref.key);
+    } on Object catch (error, stackTrace) {
+      _logger.warning('切换章节失败：${ref.key}', error, stackTrace);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).viewerChapterLoadFailed)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loadingChapter = false);
+      }
+    }
+  }
+
+  void _applyChapter(NovelChapter chapter, String key) {
     setState(() {
-      _chapterIndex = index;
+      _chapter = chapter;
+      _chapterKey = key;
       _chromeVisible = true;
     });
     if (_scrollController.hasClients) {
@@ -284,12 +353,11 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
   }
 
   Future<void> _openCatalog() async {
-    final content = _content;
-    if (content == null) {
+    if (_chapterRefs.isEmpty) {
       return;
     }
     final l10n = AppLocalizations.of(context);
-    final selected = await showModalBottomSheet<int>(
+    final selected = await showModalBottomSheet<ViewerChapterRef>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -305,11 +373,11 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
               constraints: const BoxConstraints(maxHeight: 360),
               child: ListView.builder(
                 shrinkWrap: true,
-                itemCount: content.chapters.length,
+                itemCount: _chapterRefs.length,
                 itemBuilder: (context, index) => ListTile(
-                  selected: index == _chapterIndex,
-                  title: Text(content.chapters[index].title),
-                  onTap: () => Navigator.of(context).pop(index),
+                  selected: _chapterRefs[index].key == _chapterKey,
+                  title: Text(_chapterRefs[index].title),
+                  onTap: () => Navigator.of(context).pop(_chapterRefs[index]),
                 ),
               ),
             ),
@@ -320,8 +388,8 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
     if (!mounted) {
       return;
     }
-    if (selected != null && selected != _chapterIndex) {
-      await _switchChapter(selected);
+    if (selected != null) {
+      await _selectChapter(selected);
     }
     if (!_chromeVisible) {
       setState(() => _chromeVisible = true);

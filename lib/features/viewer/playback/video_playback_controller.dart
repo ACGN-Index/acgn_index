@@ -10,6 +10,7 @@ class VideoPlaybackState {
     this.status = VideoPlaybackStatus.idle,
     this.position = Duration.zero,
     this.duration = Duration.zero,
+    this.buffered = Duration.zero,
     this.buffering = false,
     this.playing = false,
   });
@@ -17,6 +18,10 @@ class VideoPlaybackState {
   final VideoPlaybackStatus status;
   final Duration position;
   final Duration duration;
+
+  /// 已缓存到的位置（demuxer 缓存末尾），用于进度条上的缓存区间。
+  final Duration buffered;
+
   final bool buffering;
 
   /// 后端真实的播放状态，与 [status] 解耦。
@@ -33,12 +38,14 @@ class VideoPlaybackState {
     VideoPlaybackStatus? status,
     Duration? position,
     Duration? duration,
+    Duration? buffered,
     bool? buffering,
     bool? playing,
   }) => VideoPlaybackState(
     status: status ?? this.status,
     position: position ?? this.position,
     duration: duration ?? this.duration,
+    buffered: buffered ?? this.buffered,
     buffering: buffering ?? this.buffering,
     playing: playing ?? this.playing,
   );

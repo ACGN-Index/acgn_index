@@ -22,6 +22,9 @@ abstract final class AppRoutes {
   /// 作品详情是全屏页，从发现页卡片进入。
   static const String workDetail = '/work';
 
+  /// 跨规则搜索是全屏页，从发现页右上角搜索入口进入。
+  static const String search = '/search';
+
   /// 查看器是全屏页，挂在根路由上而不是主导航分支里。
   static const String videoViewer = '/viewer/video';
   static const String comicViewer = '/viewer/comic';

@@ -1,6 +1,7 @@
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/core/utils/title_match.dart';
 import 'package:acgn_index/data/repositories/rule_cover_headers.dart';
+import 'package:acgn_index/data/repositories/rule_discover_item.dart';
 import 'package:acgn_index/domain/entities/content_source.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
 import 'package:acgn_index/domain/entities/rule_auth.dart';
@@ -118,7 +119,7 @@ class RuleContentSourceRepository implements ContentSourceRepository {
     final RuleAuth? auth = await _auth?.find(source.id);
     final headers = ruleCoverHeaders(source, auth);
     return <DiscoverItem>[
-      for (final work in results) _toItem(source, work, headers),
+      for (final work in results) discoverItemFrom(source, work, headers),
     ];
   }
 
@@ -173,24 +174,4 @@ class RuleContentSourceRepository implements ContentSourceRepository {
     final priority = a.priority.compareTo(b.priority);
     return priority != 0 ? priority : a.name.compareTo(b.name);
   }
-
-  DiscoverItem _toItem(
-    RuleSource source,
-    SearchResult work,
-    Map<String, String> headers,
-  ) => DiscoverItem(
-    ruleId: source.id,
-    ruleName: source.name,
-    type: source.type,
-    origin: source.origin,
-    adult: source.pack.meta.adult,
-    id: work.id,
-    title: work.title,
-    cover: work.cover,
-    coverHeaders: headers,
-    author: work.author,
-    subtitle: work.subtitle,
-    url: work.url == null ? null : Uri.tryParse(work.url!),
-    extra: work.extra,
-  );
 }
