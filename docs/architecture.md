@@ -39,7 +39,7 @@
 | `lib/core/widgets` | 无业务语义的通用组件（空状态等） |
 | `lib/data/db` | Drift 表定义、DAO、迁移 |
 | `lib/data/builtin` | 内置规则集的校验与播种（`BuiltinRuleSeeder`） |
-| `lib/data/network` | 规则 HTTP 客户端（Dio 实现） |
+| `lib/data/network` | 规则 HTTP 客户端（Dio 实现）、登录凭据注入、WebView Cookie 读写 |
 | `lib/data/sandbox` | `JsRuntime` 的 QuickJS 实现（`flutter_js`） |
 | `lib/data/repositories` | 仓储实现：规则源、发现聚合、详情/章节编排 |
 | `lib/data/providers.dart` | 数据层的 Riverpod 组合根 |
@@ -52,7 +52,7 @@
 | `lib/features/discover` | 发现页：聚合启用规则的搜索结果、类型/来源筛选、作品网格 |
 | `lib/features/detail` | 作品详情：详情字段、分组目录、章节按需抓取并打开查看器 |
 | `lib/features/viewer` | 视频 / 漫画 / 小说查看器：播放后端抽象、弹幕引擎、阅读设置 |
-| `lib/features/sources` | 规则源列表与规则编辑器（可视化表单 / JSON 双模式、校验、保存） |
+| `lib/features/sources` | 规则源列表、规则编辑器（可视化表单 / JSON 双模式、校验、保存）与规则登录页（WebView / 手动请求头） |
 | `lib/l10n` | ARB 源文件（生成物在 `lib/l10n/generated`，不入库） |
 
 ## 数据流
@@ -65,7 +65,11 @@ RulePack.fromJson(rawJson)                   ← 结构解析，非法即抛
    ▼
 RuleSourceRepository.save(RuleSource)        ← 原文 + 冗余列写入 Drift
    ▼
+RuleAuthRepository.save(RuleAuth)            ← 登录凭据单独写入本地表，不进入规则 JSON
+   ▼
 [features/sources] 列表  →  [features/discover] 读取所有启用规则
+   ▼
+AuthenticatedRuleHttpClient                  ← 按 ruleId 注入本地 Cookie / 认证请求头
    ▼
 RuleSearchPipeline.search(pack, keyword: '') ← 模板 → HTTP → JSON/HTML/XML 解析 → 字段求值
    ▼
@@ -115,6 +119,29 @@ JS 字段由组合根注入 `JsRuntime`：生产实现是 `data/sandbox/flutter_
 4. 章节点击时调用 `RuleContentPipeline` 抓取当前章节，再由 `mapRuleContent` 映射为 `ComicViewerLaunch` / `NovelViewerLaunch` / `VideoViewerLaunch` / `FileViewerLaunch`。
 
 漫画与小说一次只加载当前章节，查看器内不预取全书；视频把正文的每条线路映射为一集。EPUB/TXT 等文件模式没有内置阅读器，详情页复制下载地址并提示用户。
+
+### 内容来源检索
+
+所有详情页都会做一次跨源检索，交互参考 Kazumi 的播放来源面板：`ContentSourceRepository` 从已启用、同 `MediaType`、同时具备 `search` 与 `content` 的其他规则中按 `priority` 搜索作品标题，并把结果**按来源分组**返回（每组的 `ok` / `noResult` / `failed` 状态互不影响）。
+
+1. 标题相关（规范化后相等 / 包含）的结果优先，每个来源最多 3 条；标题全部无命中时依次尝试 `detail.aliases`（最多 2 个）。
+2. 单个来源可以独立「修改检索词」「使用别名」「重新检索」，走 `refreshProvider`，只替换该来源而保留其它分组。
+3. 当前规则没有 `content` 时区块默认展开（资料源需要引导用户去别处看正文）；有 `content` 时默认折叠为一行摘要，避免挤占目录。
+4. 选中结果后在当前详情页替换作品并重新加载，不新增路由；新来源具备 `content`，目录随即变为可点击。
+
+## 规则登录
+
+规则包可选的 `login` 字段描述登录方式（`webview` / `headers`），真实凭据由用户在应用内完成登录后写入本地 `SourceAuthRecords` 表：
+
+1. `features/sources` 的规则编辑器 / 规则列表打开 `/rule-login`；
+2. `webview` 模式通过 `flutter_inappwebview` 打开登录页，用 `CookieManager` 抓取 Cookie（失败时回退 `document.cookie`），并可用 `successUrlPattern` 判定成功；
+3. `headers` 模式或 WebView 不可用时，用户手动填写 Cookie / 请求头；
+4. 保存时校验登录地址 host 属于 `baseUrl` / `allowedHosts`，凭据按 `pack.meta.id` 写入本地库；
+5. `AuthenticatedRuleHttpClient` 在每次请求中按 `ruleId` 注入凭据；发现页封面、详情封面、漫画图片、视频 / 文件地址的请求头在仓储层同样合并凭据。
+
+凭据永远不进入 `rulePackJson`，导出规则不会泄漏；日志输出前必须脱敏。删除规则时 `SourceDao.deleteById` 会在同一事务中清理对应凭据。
+
+平台支持由 `flutter_inappwebview` 提供（Android / iOS / macOS / Windows / Linux）。Windows 构建需要 NuGet CLI，Linux 需要 WPE WebKit 及其依赖（libwpe / libsecret / wayland-server 等）。
 
 ## 内置规则集
 
@@ -183,3 +210,5 @@ JS 字段由组合根注入 `JsRuntime`：生产实现是 `data/sandbox/flutter_
 | `MediaType` 放在 `core/models` | 被 `rule_engine`、`domain`、`features` 共同使用，放在任一侧都会造成反向依赖 | 与直觉的"实体放 domain"略有偏差 |
 | 播放器用 `media_kit` 而非官方 `video_player` | 官方插件不覆盖 Windows/Linux，而本项目需要全平台 | 需随包分发 libmpv，安装包变大 |
 | 弹幕自研而非引入第三方包 | 需要与播放器时钟严格同步的轨道排版，且第三方包维护状态不一 | 需要自己维护排版与回收逻辑 |
+| WebView 选用 `flutter_inappwebview` | 覆盖 Android / Windows / Linux，能读取 HttpOnly Cookie，避免为各平台各写一套 WebView | 依赖 beta 版本以启用 Linux 支持；Windows 构建需要 NuGet CLI；Linux 需要 WPE WebKit 依赖 |
+| 登录凭据与规则包分离 | 规则可分享，凭据只属于本机用户；避免导出规则时泄漏 Token | 需要额外的本地表与请求注入层 |

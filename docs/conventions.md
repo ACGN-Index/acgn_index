@@ -79,6 +79,7 @@
 - 新增运行时依赖需要：明确用途、说明为何不能自己实现、确认全平台可用（Android + Windows + Linux）。
 - 许可证必须与 GPL-3.0 **兼容**：允许 MIT/BSD/Apache-2.0/LGPL；**禁止**引入 GPL 不兼容或商业闭源组件。
 - 优先使用仍在维护的包；注意 pub.dev 上标注 EOL/obsolete 的包（例如 `sqlite3_flutter_libs` 已由 `package:sqlite3` 3.x 内置能力取代）。
+- 跨平台 WebView 使用 `flutter_inappwebview`（当前锁定 beta 线以覆盖 Linux）；Windows 构建机需要 NuGet CLI，Linux 运行环境需要 WPE WebKit 及其依赖（libwpe / libsecret / wayland-server 等）。
 - 新增依赖用 `flutter pub add`（不手写版本号），并在 PR 描述里列出。
 
 ## 9. 文档职责

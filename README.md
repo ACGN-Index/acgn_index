@@ -20,6 +20,7 @@
 | 番剧播放 | 🚧 M4 |
 | 下载与离线 | 🚧 M5 |
 | 备份与恢复（本地 / WebDAV） | 🚧 M6 |
+| 规则登录（WebView / 手动请求头） | ✅ 已就绪 |
 | 规则编辑器与规则分享 | 🚧 M7 |
 
 平台：Android、Windows、Linux（iOS/macOS 目录保留但未验证）。
@@ -34,6 +35,8 @@
 dart run tool/bootstrap.dart   # pub get → gen-l10n → build_runner
 flutter run -d windows         # 或 -d <android-device-id>
 ```
+
+WebView 登录依赖 `flutter_inappwebview`：Windows 构建机需要把 NuGet CLI 加入 `PATH`，运行需要 WebView2 Runtime（Windows 11 通常已内置）；Linux 运行环境需要 WPE WebKit 及其依赖（libwpe / libsecret / wayland-server 等，详见插件文档）。
 
 提交前自检：
 
@@ -67,6 +70,8 @@ flutter test
 后三条改写自 [Predidit/KazumiRules](https://github.com/Predidit/KazumiRules)（MIT）中的在用规则，原规则依赖 WebView + JS Hook 抓取播放地址，这里改写为本项目的规则 schema：能直接从接口或播放页拿到 HLS 直链的写 `content.mode=video`，拿不到的只保留资料与剧集表（章节点击会提示「该源仅提供资料」）。全部默认关闭，需在「规则」页手动启用。
 
 只包含公开接口的元数据与目录解析，不含内容托管；第三方来源默认关闭，是否启用由用户决定。规则页右下角可打开**规则编辑器**：可视化表单与 JSON 双模式编辑，支持新建、格式化、校验（逐条列出路径）并保存自己的规则。
+
+需要登录的站点可在规则编辑器的「登录」分区声明登录方式（WebView 网页登录或手动请求头），并在规则列表或编辑器顶部打开登录页完成登录；Cookie / Token 只保存在本机，不会写入或导出规则包。
 
 ## 项目结构
 

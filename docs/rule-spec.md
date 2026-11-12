@@ -23,6 +23,7 @@
 | `schemaVersion` | int | ✅ | 必须等于当前支持的版本（当前 `1`） |
 | `meta` | object | ✅ | 规则元信息 |
 | `request` | object | ❌ | 请求默认值，缺省时使用内置默认 |
+| `login` | object | ❌ | 登录方式声明，见 3.1 |
 | `capabilities` | object | ✅ | 至少声明一种能力 |
 
 未知字段不报错，只产生 warning（前向兼容）。
@@ -51,6 +52,34 @@
 | `timeoutMs` | int | `15000` | 单请求超时 |
 | `encoding` | string | `utf-8` | 响应解码字符集 |
 | `retry` | int | `0` | 网络失败重试次数，0–2 |
+
+### 3.1 `login`（可选）
+
+需要登录的站点可以声明登录方式。规则包只描述「怎么登录」，真实 Cookie / 请求头由应用保存在本地，**不写入规则包、不参与导出**。
+
+```json
+"login": {
+  "mode": "webview",
+  "url": "{{baseUrl}}/login",
+  "successUrlPattern": "/(profile|user)",
+  "cookieNames": ["sessionid"],
+  "headers": {
+    "Authorization": "Bearer {{cookie.access_token}}"
+  }
+}
+```
+
+| 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `mode` | `"webview"` \| `"headers"` | `webview` | `webview`：应用内打开登录页并抓取 Cookie；`headers`：用户手动填写请求头 |
+| `url` | string | — | 登录页地址，`webview` 必填；支持 `{{baseUrl}}` 与相对路径 |
+| `successUrlPattern` | string | — | 登录成功 URL 正则，匹配时提示用户保存登录状态 |
+| `cookieNames` | string[] | `[]` | WebView 抓取时只保留这些 Cookie；留空表示全部 |
+| `headers` | object<string,string> | `{}` | 登录后附加到该规则所有请求的请求头；值支持 `{{cookie.name}}` |
+
+登录凭据按 `meta.id` 保存在本地数据库。应用会把它合并进该规则的全部 HTTP 请求、封面 / 图片 / 视频 / 文件请求头；同名请求头以本地凭据为准。WebView 登录地址的主机必须属于 `meta.baseUrl` 或 `meta.allowedHosts`。
+
+> `login.headers` 属于规则内容，值应尽量留空或使用 `cookie` 模板；用户真实 Token 请通过应用登录界面填写，不要写进规则包。
 
 ## 4. `capabilities`
 
@@ -162,8 +191,9 @@
 | `{{chapter.<任意字段>}}` | `content` | 目录 `fields` 里声明的自定义字段（如 EPUB 的 `file`、`size`） |
 | `{{group.id}}` / `{{group.title}}` | `toc` | 分卷/线路分组字段 |
 | `{{resolve.*}}` | `content` | `resolve` 二段请求的字段 |
+| `{{cookie.name}}` | `login.headers` | 本地保存的 Cookie 值；缺失时按空值处理 |
 
-未声明的变量视为规则错误，请求不会发出。
+未声明的变量视为规则错误，请求不会发出。`login.headers` 中值为空的项不会发送。
 
 ## 6. FieldRule（字段规则）
 
@@ -250,6 +280,10 @@
 - `content`：缺 `mode` 或 `mode` 非法；缺 `url`（`video` 且 `fields` 声明了 `url` / `urls` 时可留空）；`url` 留空却声明 `resolve`
 - `detail` / `search`（query）缺 `url`
 - `resolve` 缺 `url`
+- `login` 不是对象；`login.mode` 不是 `webview` / `headers`；`webview` 模式缺 `login.url`；`login.url` 不是 http(s) 或相对路径
+- `login.successUrlPattern` 不是合法正则
+- `login.cookieNames` 不是字符串数组或包含空字符串
+- `login.headers` 值不是字符串
 - 能力 `method` 不是 GET/POST；`headers` 值不是字符串
 - 字段规则没有取值来源且没有 `items`，或声明了多个主来源，或 `items` 与来源同时声明（`js` 可与一个主来源组合）
 - `regex` 无法编译；`group` 非非负整数；`multiple` / `html` / `absolute` / `htmlToText` 非布尔
@@ -257,7 +291,7 @@
 
 **warning（不阻止安装）**
 
-- 未知字段（顶层、meta、request、能力、能力子对象、字段）
+- 未知字段（顶层、meta、request、login、能力、能力子对象、字段）
 - `fields` 为空
 - 未知能力键
 - `query` 模式下声明了只在 `index` 使用的配置
@@ -269,14 +303,15 @@
 | 任意代码执行 | 规则不能导入库、不能访问宿主对象；仅 `value`/`ctx`/`http` |
 | 任意网络访问 | 请求目标 host 必须属于规则声明的 `baseUrl` 或显式允许列表 |
 | 拒绝服务 | JS 执行超时 + 请求超时 + 分页上限 |
-| 凭据泄漏 | 导出规则时剔除 cookie/token；日志脱敏 |
+| 凭据泄漏 | 登录凭据单独保存在本地数据库，不写入规则 JSON；导出规则时天然不含 cookie/token；日志脱敏 |
+| 钓鱼登录页 | WebView 登录地址的主机必须属于 `baseUrl` / `allowedHosts`，规则不能把用户带到任意站点 |
 | 恶意规则分发 | 导入前必须通过校验；导入展示作者、来源与请求 host 供用户确认 |
 
 ## 9. 版本演进
 
 | schemaVersion | 变更 | 迁移 |
 | --- | --- | --- |
-| `1` | 初版（预发布）：四种能力 + CSS/XPath/JSONPath/JS/常量取值；单 `meta.type`；`content.mode`；`search.mode=index` + `filter`；`toc.fanOutFrom`/`group`；`FieldRule` 的 `multiple`/`template`/`fallback`/`items`/`fields`/`htmlToText`；`request.retry` | —（预发布阶段不升版本，字段可调整） |
+| `1` | 初版（预发布）：四种能力 + CSS/XPath/JSONPath/JS/常量取值；单 `meta.type`；`content.mode`；`search.mode=index` + `filter`；`toc.fanOutFrom`/`group`；`FieldRule` 的 `multiple`/`template`/`fallback`/`items`/`fields`/`htmlToText`；`request.retry`；可选的 `login` 登录声明（WebView / 手动请求头） | —（预发布阶段不升版本，字段可调整） |
 
 规则演进策略：
 
