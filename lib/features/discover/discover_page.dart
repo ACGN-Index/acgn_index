@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:acgn_index/app/router/app_destinations.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/core/widgets/empty_state_view.dart';
@@ -187,20 +189,28 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 220,
-                childAspectRatio: 0.62,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => DiscoverWorkCard(
-                  item: items[index],
-                  onTap: () => context.push(AppRoutes.workDetail, extra: items[index]),
-                ),
-                childCount: items.length,
-              ),
+            sliver: SliverLayoutBuilder(
+              builder: (context, constraints) {
+                final columns = _gridColumnsFor(constraints.crossAxisExtent);
+                final itemWidth =
+                    (constraints.crossAxisExtent - _gridSpacing * (columns - 1)) / columns;
+                return SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    childAspectRatio: 0.62,
+                    crossAxisSpacing: _gridSpacing,
+                    mainAxisSpacing: _gridSpacing,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => DiscoverWorkCard(
+                      item: items[index],
+                      dense: itemWidth < _denseCardWidth,
+                      onTap: () => context.push(AppRoutes.workDetail, extra: items[index]),
+                    ),
+                    childCount: items.length,
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -213,6 +223,23 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
 
   bool _sameIds(Set<String> left, Set<String> right) =>
       left.length == right.length && left.containsAll(right);
+}
+
+const double _gridSpacing = 8;
+
+/// 卡片窄于该宽度时收起内边距与字号，保证窄屏三列也能读。
+const double _denseCardWidth = 136;
+
+/// 网格每列的目标宽度，决定不同窗口宽度下的列数。
+const double _gridTargetCardWidth = 170;
+
+const int _gridMinColumns = 3;
+const int _gridMaxColumns = 10;
+
+/// 按可用宽度计算作品网格列数：窄屏（手机）至少 3 列，宽屏随宽度增长。
+int _gridColumnsFor(double crossAxisExtent) {
+  final columns = (crossAxisExtent / _gridTargetCardWidth).round();
+  return math.max(_gridMinColumns, math.min(_gridMaxColumns, columns));
 }
 
 class _FailureBanner extends StatelessWidget {

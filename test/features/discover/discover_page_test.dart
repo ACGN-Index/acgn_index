@@ -13,6 +13,10 @@ import '../sources/sources_test_helpers.dart';
 import 'discover_test_helpers.dart';
 
 void main() {
+  SliverGridDelegateWithFixedCrossAxisCount gridDelegateOf(WidgetTester tester) =>
+      tester.widget<SliverGrid>(find.byType(SliverGrid)).gridDelegate
+          as SliverGridDelegateWithFixedCrossAxisCount;
+
   Future<FakeDiscoverFeedRepository> pumpPage(
     WidgetTester tester,
     DiscoverFeed feed,
@@ -63,6 +67,47 @@ void main() {
     await tester.tap(find.text('作品 A'));
 
     expect(taps, 1);
+  });
+
+  testWidgets('窄屏作品网格至少三列', (tester) async {
+    tester.view.physicalSize = const Size(380, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpPage(
+      tester,
+      discoverFeed(
+        items: <DiscoverItem>[
+          discoverItem(id: 'a', title: '作品 A'),
+          discoverItem(id: 'b', title: '作品 B'),
+          discoverItem(id: 'c', title: '作品 C'),
+          discoverItem(id: 'd', title: '作品 D'),
+        ],
+      ),
+    );
+
+    expect(gridDelegateOf(tester).crossAxisCount, 3);
+    expect(find.byType(DiscoverWorkCard), findsNWidgets(4));
+  });
+
+  testWidgets('宽屏作品网格随宽度增加列数', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpPage(
+      tester,
+      discoverFeed(
+        items: <DiscoverItem>[
+          discoverItem(id: 'a', title: '作品 A'),
+          discoverItem(id: 'b', title: '作品 B'),
+        ],
+      ),
+    );
+
+    expect(gridDelegateOf(tester).crossAxisCount, greaterThan(3));
   });
 
   testWidgets('展示作品卡片、类型徽标与成人徽标', (tester) async {
