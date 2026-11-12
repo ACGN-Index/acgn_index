@@ -233,5 +233,87 @@ void main() {
       expect(result.isValid, isFalse);
       expect(result.errors.map((issue) => issue.path), contains('schemaVersion'));
     });
+
+    test('login 未知字段只产生 warning', () {
+      final json = cloneDemoPack();
+      final login = json['login'] as Map<String, Object?>..['futureField'] = true;
+      final result = validator.validate(json);
+
+      expect(json['login'], same(login));
+      expect(result.isValid, isTrue, reason: describe(result));
+      expect(result.warnings.map((issue) => issue.path), contains('login.futureField'));
+    });
+
+    test('webview 登录缺少 url 报错', () {
+      final json = cloneDemoPack();
+      (json['login'] as Map<String, Object?>)
+        ..['mode'] = 'webview'
+        ..remove('url');
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('login.url'));
+    });
+
+    test('login.mode 非法报错', () {
+      final json = cloneDemoPack();
+      (json['login'] as Map<String, Object?>)['mode'] = 'api';
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('login.mode'));
+    });
+
+    test('login.successUrlPattern 非法正则报错', () {
+      final json = cloneDemoPack();
+      (json['login'] as Map<String, Object?>)['successUrlPattern'] = '[';
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(
+        result.errors.map((issue) => issue.path),
+        contains('login.successUrlPattern'),
+      );
+    });
+
+    test('login.cookieNames 与 headers 类型错误报错', () {
+      final json = cloneDemoPack();
+      final login = json['login'] as Map<String, Object?>
+        ..['cookieNames'] = <Object?>['sid', '']
+        ..['headers'] = <String, Object?>{'Authorization': 1};
+      final result = validator.validate(json);
+
+      expect(login, isNotNull);
+      expect(result.isValid, isFalse);
+      expect(
+        result.errors.map((issue) => issue.path),
+        containsAll(<String>['login.cookieNames[1]', 'login.headers.Authorization']),
+      );
+    });
+
+    test('login.url 可以是相对路径', () {
+      final json = cloneDemoPack();
+      (json['login'] as Map<String, Object?>)['url'] = '/login';
+      final result = validator.validate(json);
+
+      expect(result.isValid, isTrue, reason: describe(result));
+    });
+
+    test('login.url 的主机必须在 baseUrl / allowedHosts 内', () {
+      final json = cloneDemoPack();
+      (json['login'] as Map<String, Object?>)['url'] = 'https://phishing.invalid/login';
+      final result = validator.validate(json);
+
+      expect(result.isValid, isFalse);
+      expect(result.errors.map((issue) => issue.path), contains('login.url'));
+
+      final meta = json['meta'] as Map<String, Object?>
+        ..['allowedHosts'] = <String>[
+          'https://phishing.invalid',
+        ];
+      expect(meta, isNotNull);
+      final allowed = validator.validate(json);
+      expect(allowed.isValid, isTrue, reason: describe(allowed));
+    });
   });
 }

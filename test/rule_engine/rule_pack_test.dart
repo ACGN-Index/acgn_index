@@ -19,6 +19,10 @@ void main() {
       expect(pack.request.timeoutMs, 15000);
       expect(pack.request.retry, 0);
       expect(pack.request.headers['User-Agent'], 'ACGNIndex/0.2');
+      expect(pack.login, isNotNull);
+      expect(pack.login!.mode, RuleLoginMode.webview);
+      expect(pack.login!.cookieNames, <String>['sessionid']);
+      expect(pack.login!.headers['X-Login-Token'], '{{cookie.sessionid}}');
       expect(pack.capabilities.keys, containsAll(RuleCapability.values));
       expect(
         pack.capabilities[RuleCapability.content],
@@ -51,6 +55,8 @@ void main() {
       expect(reparsed.meta.id, original.meta.id);
       expect(reparsed.meta.type, original.meta.type);
       expect(reparsed.capabilities.length, original.capabilities.length);
+      expect(reparsed.login?.mode, original.login?.mode);
+      expect(reparsed.login?.cookieNames, original.login?.cookieNames);
 
       final originalSearch = original.capabilities[RuleCapability.search]!;
       final reparsedSearch = reparsed.capabilities[RuleCapability.search]!;
@@ -58,6 +64,23 @@ void main() {
       expect(reparsedSearch.list?.selector, '.result .item');
       expect(reparsedSearch.fields['id']?.regex, r'/(\d+)$');
       expect(reparsedSearch.fields['cover']?.absolute, isTrue);
+    });
+
+    test('登录地址支持 baseUrl 模板与相对路径', () {
+      const login = RuleLoginRule(url: '{{baseUrl}}/login');
+      expect(login.resolveUrl('https://example.invalid'), 'https://example.invalid/login');
+
+      const relative = RuleLoginRule(url: '/signin');
+      expect(relative.resolveUrl('https://example.invalid'), 'https://example.invalid/signin');
+    });
+
+    test('登录成功判定使用正则', () {
+      const login = RuleLoginRule(successUrlPattern: r'/user/\d+');
+      expect(login.matchesSuccess('https://example.invalid/user/42'), isTrue);
+      expect(login.matchesSuccess('https://example.invalid/login'), isFalse);
+
+      const invalid = RuleLoginRule(successUrlPattern: '[');
+      expect(invalid.matchesSuccess('https://example.invalid/user/42'), isFalse);
     });
 
     test('缺少 schemaVersion 时抛出 RuleFormatException', () {

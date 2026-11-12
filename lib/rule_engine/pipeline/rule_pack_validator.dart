@@ -20,6 +20,7 @@ class RulePackValidator {
     'schemaVersion',
     'meta',
     'request',
+    'login',
     'capabilities',
   };
   static const Set<String> _metaKeys = <String>{
@@ -36,6 +37,13 @@ class RulePackValidator {
     'allowedHosts',
   };
   static const Set<String> _requestKeys = <String>{'headers', 'timeoutMs', 'encoding', 'retry'};
+  static const Set<String> _loginKeys = <String>{
+    'mode',
+    'url',
+    'successUrlPattern',
+    'cookieNames',
+    'headers',
+  };
   static const Set<String> _capabilityBaseKeys = <String>{
     'url',
     'method',
@@ -92,6 +100,7 @@ class RulePackValidator {
     _checkSchemaVersion(json, issues);
     _checkMeta(json, issues);
     _checkRequest(json, issues);
+    _checkLogin(json, issues);
     _checkCapabilities(json, issues);
     return ValidationResult(issues);
   }
@@ -208,6 +217,135 @@ class RulePackValidator {
       issues.add(const RuleIssue(path: 'request.retry', message: 'retry 必须是 0–2 的整数'));
     }
   }
+
+  void _checkLogin(Map<String, Object?> json, List<RuleIssue> issues) {
+    if (!json.containsKey('login')) {
+      return;
+    }
+    final login = _asMap(json['login'], 'login', issues);
+    if (login == null) {
+      return;
+    }
+    _checkUnknownKeys(login, _loginKeys, 'login', issues);
+
+    final rawMode = login.stringOrNull('mode');
+    final mode = rawMode ?? 'webview';
+    if (mode != 'webview' && mode != 'headers') {
+      issues.add(
+        RuleIssue(path: 'login.mode', message: 'mode 仅支持 webview / headers，实际为 $rawMode'),
+      );
+    }
+
+    final url = login.stringOrNull('url');
+    if (mode == 'webview' && (url == null || url.trim().isEmpty)) {
+      issues.add(const RuleIssue(path: 'login.url', message: 'webview 登录必须声明 login.url'));
+    }
+    if (url != null && url.trim().isNotEmpty) {
+      _checkLoginUrl(json, url, issues);
+    }
+
+    final pattern = login.stringOrNull('successUrlPattern');
+    if (pattern != null && pattern.trim().isNotEmpty) {
+      try {
+        RegExp(pattern);
+      } on FormatException {
+        issues.add(
+          const RuleIssue(path: 'login.successUrlPattern', message: 'successUrlPattern 不是合法正则'),
+        );
+      }
+    }
+
+    final cookieNames = login['cookieNames'];
+    if (cookieNames != null) {
+      if (cookieNames is! List<Object?>) {
+        issues.add(
+          const RuleIssue(path: 'login.cookieNames', message: 'cookieNames 必须是字符串数组'),
+        );
+      } else {
+        for (var index = 0; index < cookieNames.length; index++) {
+          final name = cookieNames[index];
+          if (name is! String || name.trim().isEmpty) {
+            issues.add(
+              RuleIssue(
+                path: 'login.cookieNames[$index]',
+                message: 'cookieNames 只能包含非空字符串',
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    final headers = _asMap(login['headers'], 'login.headers', issues);
+    if (headers != null) {
+      for (final entry in headers.entries) {
+        if (entry.value is! String) {
+          issues.add(
+            RuleIssue(path: 'login.headers.${entry.key}', message: '登录请求头必须是字符串'),
+          );
+        }
+      }
+    }
+  }
+
+  void _checkLoginUrl(Map<String, Object?> json, String url, List<RuleIssue> issues) {
+    final meta = json['meta'];
+    final rawBaseUrl = meta is Map<Object?, Object?> ? meta['baseUrl'] : null;
+    final baseUrl = rawBaseUrl is String ? rawBaseUrl : '';
+    final rendered = url.replaceAll('{{baseUrl}}', baseUrl);
+    final parsed = Uri.tryParse(rendered);
+    final base = Uri.tryParse(baseUrl);
+    final resolved = parsed == null ? null : (parsed.hasScheme ? parsed : base?.resolveUri(parsed));
+    if (resolved == null ||
+        resolved.host.isEmpty ||
+        (resolved.scheme != 'http' && resolved.scheme != 'https')) {
+      issues.add(
+        const RuleIssue(path: 'login.url', message: 'login.url 必须是 http(s) 地址或相对路径'),
+      );
+      return;
+    }
+    if (!_loginHostAllowed(json, resolved.host)) {
+      issues.add(
+        const RuleIssue(
+          path: 'login.url',
+          message: 'login.url 的主机必须属于 meta.baseUrl 或 meta.allowedHosts',
+        ),
+      );
+    }
+  }
+
+  bool _loginHostAllowed(Map<String, Object?> json, String host) {
+    final normalized = host.toLowerCase();
+    final meta = json['meta'];
+    if (meta is! Map<Object?, Object?>) {
+      return false;
+    }
+    final rawBaseUrl = meta['baseUrl'];
+    final baseHost = rawBaseUrl is String ? Uri.tryParse(rawBaseUrl)?.host.toLowerCase() ?? '' : '';
+    if (baseHost.isNotEmpty && _matchesAllowedHost(normalized, baseHost)) {
+      return true;
+    }
+    final allowedHosts = meta['allowedHosts'];
+    if (allowedHosts is! List<Object?>) {
+      return false;
+    }
+    for (final item in allowedHosts) {
+      if (item is! String || item.trim().isEmpty) {
+        continue;
+      }
+      final parsed = Uri.tryParse(item);
+      final candidate = parsed != null && parsed.host.isNotEmpty
+          ? parsed.host.toLowerCase()
+          : item.toLowerCase();
+      if (candidate.isNotEmpty && _matchesAllowedHost(normalized, candidate)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _matchesAllowedHost(String host, String allowed) =>
+      host == allowed || host.endsWith('.$allowed');
 
   void _checkCapabilities(Map<String, Object?> json, List<RuleIssue> issues) {
     final capabilities = _asMap(json['capabilities'], 'capabilities', issues);

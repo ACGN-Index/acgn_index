@@ -19,6 +19,15 @@
     "encoding": "utf-8",
     "retry": 0
   },
+  "login": {
+    "mode": "webview",
+    "url": "{{baseUrl}}/login",
+    "successUrlPattern": "/(profile|user)",
+    "cookieNames": ["sessionid"],
+    "headers": {
+      "X-Login-Token": "{{cookie.sessionid}}"
+    }
+  },
   "capabilities": {
     "search": {
       "mode": "query",

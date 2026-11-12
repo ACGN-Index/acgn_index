@@ -32,6 +32,7 @@ class RuleRequestBuilder {
       timeout: pack.request.timeout,
       retry: pack.request.retry,
       encoding: pack.request.encoding,
+      ruleId: pack.id,
     );
   }
 

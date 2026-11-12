@@ -10,6 +10,7 @@ class RuleHttpRequest {
     this.timeout = const Duration(seconds: 15),
     this.retry = 0,
     this.encoding = 'utf-8',
+    this.ruleId,
   });
 
   final Uri uri;
@@ -22,6 +23,20 @@ class RuleHttpRequest {
   final int retry;
 
   final String encoding;
+
+  /// 发起请求的规则 id，用于注入该规则保存的本地登录凭据。
+  final String? ruleId;
+
+  RuleHttpRequest copyWith({Map<String, String>? headers}) => RuleHttpRequest(
+    uri: uri,
+    method: method,
+    headers: headers ?? this.headers,
+    body: body,
+    timeout: timeout,
+    retry: retry,
+    encoding: encoding,
+    ruleId: ruleId,
+  );
 }
 
 /// 规则引擎收到的 HTTP 响应。
@@ -47,4 +62,9 @@ class RuleHttpResponse {
 /// HTTP 客户端抽象；实现方负责超时、重试、编码与状态码处理。
 abstract interface class RuleHttpClient {
   Future<RuleHttpResponse> send(RuleHttpRequest request);
+}
+
+/// 需要释放底层资源的客户端实现。
+abstract interface class ClosableRuleHttpClient implements RuleHttpClient {
+  Future<void> close();
 }
