@@ -3,7 +3,7 @@ import 'package:drift/drift.dart';
 
 part 'source_dao.g.dart';
 
-@DriftAccessor(tables: [SourceRecords])
+@DriftAccessor(tables: [SourceRecords, SourceAuthRecords])
 class SourceDao extends DatabaseAccessor<AppDatabase> with _$SourceDaoMixin {
   SourceDao(super.attachedDatabase);
 
@@ -30,6 +30,9 @@ class SourceDao extends DatabaseAccessor<AppDatabase> with _$SourceDaoMixin {
     );
   }
 
-  Future<int> deleteById(String id) =>
-      (delete(sourceRecords)..where((table) => table.id.equals(id))).go();
+  /// 删除规则时一并清理本地登录凭据，避免残留凭据引用已删除的规则。
+  Future<int> deleteById(String id) => transaction(() async {
+    await (delete(sourceAuthRecords)..where((table) => table.ruleId.equals(id))).go();
+    return (delete(sourceRecords)..where((table) => table.id.equals(id))).go();
+  });
 }

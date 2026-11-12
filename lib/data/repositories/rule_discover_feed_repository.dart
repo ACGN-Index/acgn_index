@@ -1,8 +1,9 @@
-import 'package:acgn_index/core/constants/app_constants.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
+import 'package:acgn_index/data/repositories/rule_cover_headers.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/repositories/discover_feed_repository.dart';
+import 'package:acgn_index/domain/repositories/rule_auth_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_source_repository.dart';
 import 'package:acgn_index/rule_engine/models/capability_rule.dart';
 import 'package:acgn_index/rule_engine/models/search_result.dart';
@@ -10,10 +11,15 @@ import 'package:acgn_index/rule_engine/pipeline/search_pipeline.dart';
 
 /// 聚合所有启用规则的 `search` 结果；单条规则失败不影响其它规则。
 class RuleDiscoverFeedRepository implements DiscoverFeedRepository {
-  RuleDiscoverFeedRepository(this._sourceRepository, this._pipeline);
+  RuleDiscoverFeedRepository(
+    this._sourceRepository,
+    this._pipeline, [
+    this._auth,
+  ]);
 
   final RuleSourceRepository _sourceRepository;
   final RuleSearchService _pipeline;
+  final RuleAuthRepository? _auth;
 
   @override
   Future<DiscoverFeed> load() async {
@@ -34,7 +40,8 @@ class RuleDiscoverFeedRepository implements DiscoverFeedRepository {
         );
         continue;
       }
-      final headers = _coverHeaders(result.source);
+      final auth = await _auth?.find(result.source.id);
+      final headers = ruleCoverHeaders(result.source, auth);
       final seen = <String>{};
       for (final work in result.items) {
         if (!seen.add(work.id)) {
@@ -72,27 +79,6 @@ class RuleDiscoverFeedRepository implements DiscoverFeedRepository {
   int _compareSources(RuleSource a, RuleSource b) {
     final priority = a.priority.compareTo(b.priority);
     return priority != 0 ? priority : a.name.compareTo(b.name);
-  }
-
-  Map<String, String> _coverHeaders(RuleSource source) {
-    final headers = <String, String>{'User-Agent': AppConstants.defaultUserAgent};
-    void merge(Map<String, String> sourceHeaders) {
-      for (final entry in sourceHeaders.entries) {
-        final key = entry.key.toLowerCase();
-        if (key == 'accept' || key == 'content-type') {
-          continue;
-        }
-        final existing = headers.keys.where((header) => header.toLowerCase() == key).firstOrNull;
-        headers[existing ?? entry.key] = entry.value;
-      }
-    }
-
-    merge(source.pack.request.headers);
-    final search = source.pack.capabilities[RuleCapability.search];
-    if (search != null) {
-      merge(search.headers);
-    }
-    return headers;
   }
 
   DiscoverItem _toItem(

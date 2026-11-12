@@ -5,7 +5,7 @@ import 'package:acgn_index/rule_engine/network/rule_http_client.dart';
 import 'package:dio/dio.dart';
 
 /// 基于 Dio 的规则 HTTP 客户端：负责超时、重试、编码与状态码处理。
-class DioRuleHttpClient implements RuleHttpClient {
+class DioRuleHttpClient implements ClosableRuleHttpClient {
   DioRuleHttpClient({Dio? dio})
     : _dio = dio ?? Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
 
@@ -68,6 +68,7 @@ class DioRuleHttpClient implements RuleHttpClient {
     );
   }
 
+  @override
   Future<void> close() async => _dio.close(force: true);
 
   bool _hasHeader(Map<String, String> headers, String name) =>

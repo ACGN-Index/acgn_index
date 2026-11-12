@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:acgn_index/data/builtin/builtin_rule_seeder.dart';
 import 'package:acgn_index/data/db/app_database.dart';
+import 'package:acgn_index/data/network/authenticated_rule_http_client.dart';
 import 'package:acgn_index/data/network/dio_rule_http_client.dart';
+import 'package:acgn_index/data/repositories/drift_rule_auth_repository.dart';
 import 'package:acgn_index/data/repositories/drift_rule_source_repository.dart';
 import 'package:acgn_index/data/repositories/rule_discover_feed_repository.dart';
 import 'package:acgn_index/data/repositories/rule_work_repository.dart';
 import 'package:acgn_index/data/sandbox/flutter_js_runtime.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/repositories/discover_feed_repository.dart';
+import 'package:acgn_index/domain/repositories/rule_auth_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_source_repository.dart';
 import 'package:acgn_index/domain/repositories/work_repository.dart';
 import 'package:acgn_index/rule_engine/network/rule_http_client.dart';
@@ -33,6 +36,15 @@ final Provider<RuleSourceRepository> ruleSourceRepositoryProvider = Provider<Rul
   (ref) => DriftRuleSourceRepository(ref.watch(databaseProvider).sourceDao),
 );
 
+/// 规则登录凭据；与规则包分开存储，避免凭据进入规则 JSON。
+final Provider<RuleAuthRepository> ruleAuthRepositoryProvider = Provider<RuleAuthRepository>(
+  (ref) => DriftRuleAuthRepository(ref.watch(databaseProvider).sourceAuthDao),
+);
+
+final StreamProvider<Set<String>> loggedInRuleIdsProvider = StreamProvider<Set<String>>(
+  (ref) => ref.watch(ruleAuthRepositoryProvider).watchLoggedInRuleIds(),
+);
+
 final Provider<BuiltinRuleSeeder> builtinRuleSeederProvider = Provider<BuiltinRuleSeeder>(
   (ref) => BuiltinRuleSeeder(ref.watch(ruleSourceRepositoryProvider)),
 );
@@ -46,7 +58,10 @@ final FutureProvider<BuiltinRuleSeedResult> builtinRuleSeedProvider =
     FutureProvider<BuiltinRuleSeedResult>((ref) => ref.watch(builtinRuleSeederProvider).seed());
 
 final Provider<RuleHttpClient> ruleHttpClientProvider = Provider<RuleHttpClient>((ref) {
-  final client = DioRuleHttpClient();
+  final client = AuthenticatedRuleHttpClient(
+    DioRuleHttpClient(),
+    ref.watch(ruleAuthRepositoryProvider),
+  );
   ref.onDispose(client.close);
   return client;
 });
@@ -96,6 +111,7 @@ final Provider<DiscoverFeedRepository> discoverFeedRepositoryProvider =
       (ref) => RuleDiscoverFeedRepository(
         ref.watch(ruleSourceRepositoryProvider),
         ref.watch(ruleSearchPipelineProvider),
+        ref.watch(ruleAuthRepositoryProvider),
       ),
     );
 
@@ -105,5 +121,6 @@ final Provider<WorkRepository> workRepositoryProvider = Provider<WorkRepository>
     ref.watch(ruleDetailPipelineProvider),
     ref.watch(ruleTocPipelineProvider),
     ref.watch(ruleContentPipelineProvider),
+    ref.watch(ruleAuthRepositoryProvider),
   ),
 );

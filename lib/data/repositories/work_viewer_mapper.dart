@@ -1,3 +1,4 @@
+import 'package:acgn_index/data/repositories/rule_auth_headers.dart';
 import 'package:acgn_index/domain/entities/comic_content.dart';
 import 'package:acgn_index/domain/entities/novel_content.dart';
 import 'package:acgn_index/domain/entities/video_content.dart';
@@ -9,10 +10,12 @@ import 'package:acgn_index/rule_engine/models/toc_entry.dart';
 /// 把引擎的正文结果映射为现有查看器入参。
 ///
 /// 漫画 / 小说一次只携带当前章节；视频把每条线路映射为一集。
+/// [authHeaders] 是该规则的本地登录凭据，会合并进图片 / 视频 / 文件的请求头。
 ViewerLaunch mapRuleContent(
   RuleContent content, {
   required String workTitle,
   required TocEntry chapter,
+  Map<String, String> authHeaders = const <String, String>{},
 }) => switch (content) {
   final ImagesContent imagesContent => ComicViewerLaunch(
     ComicViewerContent(
@@ -22,7 +25,12 @@ ViewerLaunch mapRuleContent(
           id: chapter.key,
           title: chapter.title,
           pages: imagesContent.images
-              .map((image) => ViewerMedia(uri: image.uri, headers: image.headers))
+              .map(
+                (image) => ViewerMedia(
+                  uri: image.uri,
+                  headers: mergeAuthHeaders(image.headers, authHeaders),
+                ),
+              )
               .toList(growable: false),
         ),
       ],
@@ -55,7 +63,7 @@ ViewerLaunch mapRuleContent(
             ),
             media: ViewerMedia(
               uri: videoContent.sources[index].uri,
-              headers: videoContent.headers,
+              headers: mergeAuthHeaders(videoContent.headers, authHeaders),
             ),
           ),
       ],
@@ -64,7 +72,7 @@ ViewerLaunch mapRuleContent(
   final FileContent fileContent => FileViewerLaunch(
     url: fileContent.url,
     format: fileContent.format,
-    headers: fileContent.headers,
+    headers: mergeAuthHeaders(fileContent.headers, authHeaders),
   ),
 };
 

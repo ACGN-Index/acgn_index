@@ -2,6 +2,7 @@ import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/data/repositories/rule_work_repository.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
+import 'package:acgn_index/domain/entities/rule_auth.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/domain/entities/viewer_launch.dart';
 import 'package:acgn_index/rule_engine/models/capability_rule.dart';
@@ -97,6 +98,71 @@ void main() {
       expect(launch, isA<ComicViewerLaunch>());
       final content = (launch as ComicViewerLaunch).content;
       expect(content.chapters.single.pages.single.uri.host, 'img.test');
+    });
+
+    test('详情与媒体请求头合并本地登录凭据', () async {
+      final sources = FakeRuleSourceRepository(<RuleSource>[
+        _source(
+          capabilities: const <RuleCapability>{
+            RuleCapability.detail,
+            RuleCapability.content,
+          },
+        ),
+      ]);
+      addTearDown(sources.close);
+      final authRepository = FakeRuleAuthRepository(<String, RuleAuth>{
+        'rule.test': RuleAuth(
+          ruleId: 'rule.test',
+          cookies: const <String, String>{'sid': 'abc'},
+          headers: const <String, String>{'Authorization': 'Bearer token'},
+          updatedAt: DateTime(2026),
+        ),
+      });
+      addTearDown(authRepository.close);
+      final repository = RuleWorkRepository(
+        sources,
+        _FakeDetailService(
+          const WorkDetail(
+            title: '作品A',
+            headers: <String, String>{
+              'Referer': 'https://example.invalid',
+              'Cookie': 'static=1',
+            },
+          ),
+        ),
+        _FakeTocService(TocResult.empty),
+        _FakeContentService(
+          ImagesContent(
+            title: '作品A',
+            images: <ContentMedia>[
+              ContentMedia(
+                uri: Uri.parse('https://img.test/1.jpg'),
+                headers: const <String, String>{
+                  'Referer': 'https://example.invalid',
+                  'Cookie': 'static=1',
+                },
+              ),
+            ],
+            headers: const <String, String>{'Referer': 'https://example.invalid'},
+          ),
+        ),
+        authRepository,
+      );
+
+      final work = await repository.loadWork(_item());
+
+      expect(work.detail.headers['Authorization'], 'Bearer token');
+      expect(work.detail.headers['Cookie'], contains('static=1'));
+      expect(work.detail.headers['Cookie'], contains('sid=abc'));
+      final launch = await repository.loadChapter(
+        work,
+        const TocEntry(id: 'c1', title: '第一章'),
+      ) as ComicViewerLaunch;
+      final headers = launch.content.chapters.single.pages.single.headers;
+      expect(headers['Authorization'], 'Bearer token');
+      expect(headers['Cookie'], contains('static=1'));
+      expect(headers['Cookie'], contains('sid=abc'));
+      expect(headers['Referer'], 'https://example.invalid');
     });
 
     test('文本内容映射为小说查看器', () async {

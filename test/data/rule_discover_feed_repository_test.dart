@@ -1,6 +1,7 @@
 import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/data/repositories/rule_discover_feed_repository.dart';
+import 'package:acgn_index/domain/entities/rule_auth.dart';
 import 'package:acgn_index/domain/entities/rule_source.dart';
 import 'package:acgn_index/rule_engine/models/capability_rule.dart';
 import 'package:acgn_index/rule_engine/models/rule_pack.dart';
@@ -75,6 +76,41 @@ void main() {
       expect(feed.items.first.extra['volumes'], isNotNull);
       expect(feed.items.last.adult, isTrue);
       expect(feed.items.last.type, MediaType.novel);
+    });
+
+    test('封面请求头合并本地登录凭据', () async {
+      final sources = FakeRuleSourceRepository(<RuleSource>[
+        _source(id: 'rule.comic', type: MediaType.comic),
+      ]);
+      addTearDown(sources.close);
+      final authRepository = FakeRuleAuthRepository(<String, RuleAuth>{
+        'rule.comic': RuleAuth(
+          ruleId: 'rule.comic',
+          cookies: const <String, String>{'sid': 'abc'},
+          headers: const <String, String>{'Authorization': 'Bearer token'},
+          updatedAt: DateTime(2026),
+        ),
+      });
+      addTearDown(authRepository.close);
+
+      final feed = await RuleDiscoverFeedRepository(
+        sources,
+        _FakeSearchService(
+          items: <String, List<SearchResult>>{
+            'rule.comic': const <SearchResult>[
+              SearchResult(
+                id: 'c1',
+                title: '漫画 1',
+                cover: 'https://img/c1.jpg',
+              ),
+            ],
+          },
+        ),
+        authRepository,
+      ).load();
+
+      expect(feed.items.single.coverHeaders['Cookie'], 'sid=abc');
+      expect(feed.items.single.coverHeaders['Authorization'], 'Bearer token');
     });
 
     test('没有启用规则时返回空聚合结果', () async {

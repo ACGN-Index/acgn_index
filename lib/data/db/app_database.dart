@@ -1,4 +1,5 @@
 import 'package:acgn_index/core/constants/app_constants.dart';
+import 'package:acgn_index/data/db/daos/source_auth_dao.dart';
 import 'package:acgn_index/data/db/daos/source_dao.dart';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
@@ -38,14 +39,31 @@ class SourceRecords extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
-@DriftDatabase(tables: [SourceRecords], daos: [SourceDao])
+/// 规则登录凭据。
+///
+/// 与规则源分开存储：规则包只描述登录方式，真实 Cookie / 请求头不会进入
+/// `rulePackJson`，也不会随规则导出。
+class SourceAuthRecords extends Table {
+  TextColumn get ruleId => text()();
+  TextColumn get cookiesJson => text().withDefault(const Constant('{}'))();
+  TextColumn get headersJson => text().withDefault(const Constant('{}'))();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{ruleId};
+}
+
+@DriftDatabase(
+  tables: [SourceRecords, SourceAuthRecords],
+  daos: [SourceDao, SourceAuthDao],
+)
 class AppDatabase extends _$AppDatabase {
   /// 传入 `NativeDatabase.memory()` 即可在测试中使用内存库。
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: AppConstants.databaseName));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -57,6 +75,9 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(sourceRecords, sourceRecords.readOnly);
         await migrator.addColumn(sourceRecords, sourceRecords.notice);
         await migrator.addColumn(sourceRecords, sourceRecords.priority);
+      }
+      if (from < 3) {
+        await migrator.createTable(sourceAuthRecords);
       }
     },
     beforeOpen: (details) async {

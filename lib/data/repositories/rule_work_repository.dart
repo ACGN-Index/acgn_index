@@ -1,8 +1,10 @@
 import 'package:acgn_index/core/errors/app_exception.dart';
+import 'package:acgn_index/data/repositories/rule_auth_headers.dart';
 import 'package:acgn_index/data/repositories/work_viewer_mapper.dart';
 import 'package:acgn_index/domain/entities/discover_feed.dart';
 import 'package:acgn_index/domain/entities/viewer_launch.dart';
 import 'package:acgn_index/domain/entities/work_view.dart';
+import 'package:acgn_index/domain/repositories/rule_auth_repository.dart';
 import 'package:acgn_index/domain/repositories/rule_source_repository.dart';
 import 'package:acgn_index/domain/repositories/work_repository.dart';
 import 'package:acgn_index/rule_engine/models/capability_rule.dart';
@@ -19,13 +21,15 @@ class RuleWorkRepository implements WorkRepository {
     this._sources,
     this._detail,
     this._toc,
-    this._content,
-  );
+    this._content, [
+    this._auth,
+  ]);
 
   final RuleSourceRepository _sources;
   final RuleDetailService _detail;
   final RuleTocService _toc;
   final RuleContentService _content;
+  final RuleAuthRepository? _auth;
 
   @override
   Future<WorkView> loadWork(DiscoverItem item) async {
@@ -35,6 +39,7 @@ class RuleWorkRepository implements WorkRepository {
       throw StorageException('规则不存在：${item.ruleId}');
     }
     final pack = source.pack;
+    final auth = await _auth?.find(pack.id);
     final workUrl = item.url?.toString();
     final searchResult = SearchResult(
       id: item.id,
@@ -58,18 +63,26 @@ class RuleWorkRepository implements WorkRepository {
               if (item.subtitle != null) 'subtitle': item.subtitle,
             },
           );
+    final authedDetail = auth == null
+        ? detail
+        : WorkDetail(
+            title: detail.title,
+            url: detail.url,
+            headers: mergeAuthHeaders(detail.headers, auth.toRequestHeaders()),
+            fields: detail.fields,
+          );
 
     final toc = pack.supports(RuleCapability.toc)
         ? await _toc.fetch(
             pack,
             id: item.id,
-            url: detail.url ?? workUrl,
-            detail: detail,
+            url: authedDetail.url ?? workUrl,
+            detail: authedDetail,
             searchResult: searchResult,
           )
         : TocResult.empty;
 
-    return WorkView(item: item, source: source, detail: detail, toc: toc);
+    return WorkView(item: item, source: source, detail: authedDetail, toc: toc);
   }
 
   @override
@@ -84,6 +97,12 @@ class RuleWorkRepository implements WorkRepository {
       chapter: chapter,
       url: work.detail.url ?? work.item.url?.toString(),
     );
-    return mapRuleContent(content, workTitle: work.title, chapter: chapter);
+    final auth = await _auth?.find(pack.id);
+    return mapRuleContent(
+      content,
+      workTitle: work.title,
+      chapter: chapter,
+      authHeaders: auth?.toRequestHeaders() ?? const <String, String>{},
+    );
   }
 }
