@@ -222,3 +222,4 @@ JS 字段由组合根注入 `JsRuntime`：生产实现是 `data/sandbox/flutter_
 | 弹幕自研而非引入第三方包 | 需要与播放器时钟严格同步的轨道排版，且第三方包维护状态不一 | 需要自己维护排版与回收逻辑 |
 | WebView 选用 `flutter_inappwebview` | 覆盖 Android / Windows / Linux，能读取 HttpOnly Cookie，避免为各平台各写一套 WebView | 依赖 beta 版本以启用 Linux 支持；Windows 构建需要 NuGet CLI；Linux 需要 WPE WebKit 依赖 |
 | 登录凭据与规则包分离 | 规则可分享，凭据只属于本机用户；避免导出规则时泄漏 Token | 需要额外的本地表与请求注入层 |
+| 窗口标题由页面栈式声明（`WindowTitleController`） | 查看器内切换章节不经过路由，只有页面自己知道当前集数 | 页面需通过 `WindowTitleOwner` 在销毁时释放标题 |

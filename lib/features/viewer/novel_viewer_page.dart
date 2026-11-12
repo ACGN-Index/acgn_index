@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:acgn_index/app/window/window_title.dart';
 import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/domain/entities/novel_content.dart';
@@ -25,7 +26,8 @@ class NovelViewerPage extends ConsumerStatefulWidget {
   ConsumerState<NovelViewerPage> createState() => _NovelViewerPageState();
 }
 
-class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
+class _NovelViewerPageState extends ConsumerState<NovelViewerPage>
+    with WindowTitleOwner<NovelViewerPage> {
   static final Logger _logger = AppLogger.of('viewer.novel');
   static const String _progressPrefix = 'novel_progress';
   static const Duration _saveDelay = Duration(milliseconds: 600);
@@ -57,6 +59,10 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
     _chapterKey =
         content.initialChapterKey ??
         (_chapterRefs.isEmpty ? null : _chapterRefs[content.safeInitialChapterIndex].key);
+    claimWindowTitle(
+      ref.read(windowTitleControllerProvider),
+      composeWindowTitle(content.title, _chapter?.title),
+    );
     _scrollController.addListener(_handleScroll);
     unawaited(_restoreProgress());
   }
@@ -346,6 +352,7 @@ class _NovelViewerPageState extends ConsumerState<NovelViewerPage> {
       _chapterKey = key;
       _chromeVisible = true;
     });
+    setWindowTitle(composeWindowTitle(_content?.title ?? '', chapter.title));
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }

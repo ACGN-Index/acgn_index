@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:acgn_index/app/window/window_title.dart';
 import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/domain/entities/comic_content.dart';
@@ -10,22 +11,24 @@ import 'package:acgn_index/features/viewer/widgets/viewer_message_page.dart';
 import 'package:acgn_index/l10n/generated/app_localizations.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 
 /// 漫画查看器：横向翻页 + 双指缩放，点击画面切换沉浸式 UI。
-class ComicViewerPage extends StatefulWidget {
+class ComicViewerPage extends ConsumerStatefulWidget {
   const ComicViewerPage({this.content, super.key});
 
   final ComicViewerContent? content;
 
   @override
-  State<ComicViewerPage> createState() => _ComicViewerPageState();
+  ConsumerState<ComicViewerPage> createState() => _ComicViewerPageState();
 }
 
-class _ComicViewerPageState extends State<ComicViewerPage> {
+class _ComicViewerPageState extends ConsumerState<ComicViewerPage>
+    with WindowTitleOwner<ComicViewerPage> {
   static final Logger _logger = AppLogger.of('viewer.comic');
 
   int _pageIndex = 0;
@@ -55,6 +58,10 @@ class _ComicViewerPageState extends State<ComicViewerPage> {
     _chapterKey =
         content.initialChapterKey ??
         (_chapterRefs.isEmpty ? null : _chapterRefs[content.safeInitialChapterIndex].key);
+    claimWindowTitle(
+      ref.read(windowTitleControllerProvider),
+      composeWindowTitle(content.title, _chapter?.title),
+    );
     _pageController = PageController();
   }
 
@@ -352,6 +359,7 @@ class _ComicViewerPageState extends State<ComicViewerPage> {
       _pageController = PageController();
       _chromeVisible = true;
     });
+    setWindowTitle(composeWindowTitle(_content?.title ?? '', chapter.title));
     WidgetsBinding.instance.addPostFrameCallback((_) => previous?.dispose());
   }
 

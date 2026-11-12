@@ -1,4 +1,5 @@
 import 'package:acgn_index/app/router/app_destinations.dart';
+import 'package:acgn_index/app/window/window_title.dart';
 import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/models/media_type.dart';
 import 'package:acgn_index/data/providers.dart';
@@ -24,7 +25,7 @@ import 'package:go_router/go_router.dart';
 void main() {
   testWidgets('展示详情、标签、分组目录', (tester) async {
     final repository = _FakeWorkRepository(_work());
-    await _pump(tester, repository);
+    final titles = await _pump(tester, repository);
 
     expect(find.text('作品A'), findsWidgets);
     expect(find.textContaining('作者A'), findsOneWidget);
@@ -33,6 +34,7 @@ void main() {
     expect(find.text('第一卷'), findsOneWidget);
     expect(find.text('第一章'), findsOneWidget);
     expect(find.text('第二章'), findsOneWidget);
+    expect(titles.last, '作品A');
   });
 
   testWidgets('没有 content 能力时提示仅资料并禁用章节', (tester) async {
@@ -183,7 +185,7 @@ void main() {
   });
 }
 
-Future<void> _pump(
+Future<List<String>> _pump(
   WidgetTester tester,
   _FakeWorkRepository repository, {
   DiscoverItem? item = _defaultItem,
@@ -204,12 +206,16 @@ Future<void> _pump(
   );
   addTearDown(router.dispose);
 
+  final titles = <String>[];
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         workRepositoryProvider.overrideWithValue(repository),
         contentSourceRepositoryProvider.overrideWithValue(
           contentSources ?? _FakeContentSourceRepository(),
+        ),
+        windowTitleControllerProvider.overrideWithValue(
+          WindowTitleController(apply: (title) async => titles.add(title)),
         ),
       ],
       child: MaterialApp.router(
@@ -221,6 +227,7 @@ Future<void> _pump(
     ),
   );
   await tester.pumpAndSettle();
+  return titles;
 }
 
 const DiscoverItem _defaultItem = DiscoverItem(

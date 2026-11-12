@@ -1,3 +1,4 @@
+import 'package:acgn_index/app/window/window_title.dart';
 import 'package:acgn_index/data/providers.dart';
 import 'package:acgn_index/domain/entities/danmaku_comment.dart';
 import 'package:acgn_index/domain/entities/danmaku_library.dart';
@@ -141,24 +142,29 @@ Widget _wrap(Widget page) {
   );
 }
 
-Future<void> _pumpPage(
+Future<WindowTitleController> _pumpPage(
   WidgetTester tester, {
   required _FakeVideoPlaybackController controller,
   VideoViewerContent? content,
   _FakeWindowController? window,
+  List<String>? windowTitles,
 }) async {
+  final titles = windowTitles ?? <String>[];
+  final titleController = WindowTitleController(apply: (title) async => titles.add(title));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         videoPlaybackControllerFactoryProvider.overrideWithValue(() => controller),
         playerWindowControllerProvider.overrideWithValue(window ?? _FakeWindowController()),
         danmakuLibraryRepositoryProvider.overrideWithValue(_FakeDanmakuLibraryRepository()),
+        windowTitleControllerProvider.overrideWithValue(titleController),
       ],
       child: _wrap(VideoViewerPage(content: content ?? _content())),
     ),
   );
   await tester.pump();
   await tester.pump();
+  return titleController;
 }
 
 double _chromeOpacity(WidgetTester tester) {
@@ -334,10 +340,19 @@ void main() {
     expect(_chromeOpacity(tester), 1);
   });
 
+  testWidgets('窗口标题显示作品名与当前集数', (tester) async {
+    final controller = _FakeVideoPlaybackController();
+    final titles = <String>[];
+    await _pumpPage(tester, controller: controller, windowTitles: titles);
+
+    expect(titles.last, '测试番剧 - 第 1 集');
+  });
+
   testWidgets('通过章节源切换章节会重新打开对应的播放源', (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final controller = _FakeVideoPlaybackController();
+    final titles = <String>[];
     final source = _FakeChapterSource(
       const <ViewerChapterRef>[
         ViewerChapterRef(key: 'e1', title: '第 1 集'),
@@ -363,6 +378,7 @@ void main() {
       tester,
       controller: controller,
       content: _content(chapterSource: source),
+      windowTitles: titles,
     );
 
     expect(find.text('第 2 集'), findsOneWidget);
@@ -373,5 +389,6 @@ void main() {
 
     expect(controller.opened, hasLength(2));
     expect(controller.opened.last.uri.toString(), 'https://example.invalid/video/e2.m3u8');
+    expect(titles.last, '测试番剧 - 第 2 集');
   });
 }

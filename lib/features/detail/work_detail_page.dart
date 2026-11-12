@@ -1,4 +1,5 @@
 import 'package:acgn_index/app/router/app_destinations.dart';
+import 'package:acgn_index/app/window/window_title.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/core/utils/html_text.dart';
 import 'package:acgn_index/core/widgets/empty_state_view.dart';
@@ -27,7 +28,8 @@ class WorkDetailPage extends ConsumerStatefulWidget {
   ConsumerState<WorkDetailPage> createState() => _WorkDetailPageState();
 }
 
-class _WorkDetailPageState extends ConsumerState<WorkDetailPage> {
+class _WorkDetailPageState extends ConsumerState<WorkDetailPage>
+    with WindowTitleOwner<WorkDetailPage> {
   late final WorkRepository _repository;
   late DiscoverItem? _item;
   Future<WorkView>? _work;
@@ -65,7 +67,11 @@ class _WorkDetailPageState extends ConsumerState<WorkDetailPage> {
 
   Future<WorkView> _loadWork(DiscoverItem item) async {
     try {
-      return await _repository.loadWork(item);
+      final work = await _repository.loadWork(item);
+      if (mounted) {
+        claimWindowTitle(ref.read(windowTitleControllerProvider), work.title);
+      }
+      return work;
     } on Object catch (error, stackTrace) {
       AppLogger.of('detail').warning('作品加载失败：${item.ruleId}/${item.id}', error, stackTrace);
       rethrow;

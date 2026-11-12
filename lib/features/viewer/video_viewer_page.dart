@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:acgn_index/app/window/window_title.dart';
 import 'package:acgn_index/core/errors/app_exception.dart';
 import 'package:acgn_index/core/logging/app_logger.dart';
 import 'package:acgn_index/domain/entities/danmaku_comment.dart';
@@ -36,7 +37,8 @@ class VideoViewerPage extends ConsumerStatefulWidget {
   ConsumerState<VideoViewerPage> createState() => _VideoViewerPageState();
 }
 
-class _VideoViewerPageState extends ConsumerState<VideoViewerPage> {
+class _VideoViewerPageState extends ConsumerState<VideoViewerPage>
+    with WindowTitleOwner<VideoViewerPage> {
   static final Logger _logger = AppLogger.of('viewer.video');
   static const Duration _controlsTimeout = Duration(seconds: 3);
 
@@ -107,6 +109,10 @@ class _VideoViewerPageState extends ConsumerState<VideoViewerPage> {
     _episodeIndex = content.safeInitialEpisodeIndex;
     _chapterKey = content.initialChapterKey ?? content.chapterSource?.chapters.firstOrNull?.key;
     _chapterTitle = content.chapterTitle ?? _episodes[_episodeIndex].title;
+    claimWindowTitle(
+      ref.read(windowTitleControllerProvider),
+      composeWindowTitle(content.title, _chapterTitle),
+    );
     _danmakuInput = TextEditingController();
     _danmakuFocus = FocusNode();
     _window = ref.read(playerWindowControllerProvider);
@@ -902,6 +908,9 @@ class _VideoViewerPageState extends ConsumerState<VideoViewerPage> {
       });
       _engine?.setComments(episode.danmaku);
       unawaited(_playback?.open(episode.media));
+      setWindowTitle(
+        composeWindowTitle(_content?.title ?? content.title, _chapterTitle),
+      );
       _wasPlaying = false;
       unawaited(_loadLibraryDanmaku());
     } on Object catch (error, stackTrace) {
